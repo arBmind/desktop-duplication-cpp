@@ -37,6 +37,15 @@ void window_renderer::setZoom(float zoom) {
 	zoom_m = zoom;
 }
 
+void window_renderer::moveOffset(POINT delta) {
+	if (delta.x == 0 && delta.y == 0) return;
+	auto offset = vec2f{ 
+		offset_m.x + (float)delta.x / zoom_m, 
+		offset_m.y + (float)delta.y / zoom_m
+	};
+	offset_m = offset;
+}
+
 void window_renderer::render() {
 	if (resetBuffers_m) {
 		resetBuffers_m = false;
@@ -172,11 +181,11 @@ void window_renderer::setViewPort() {
 	texture_m->GetDesc(&texture_description);
 
 	D3D11_VIEWPORT view_port;
-	view_port.Width = (float)texture_description.Width * zoom_m;
-	view_port.Height = (float)texture_description.Height * zoom_m;
+	view_port.Width = float(texture_description.Width) * zoom_m;
+	view_port.Height = float(texture_description.Height) * zoom_m;
 	view_port.MinDepth = 0.0f;
 	view_port.MaxDepth = 1.0f;
-	view_port.TopLeftX = 0;
-	view_port.TopLeftY = 0;
+	view_port.TopLeftX = float(offset_m.x) * zoom_m;
+	view_port.TopLeftY = float(offset_m.y) * zoom_m;
 	deviceContext_m->RSSetViewports(1, &view_port);
 }

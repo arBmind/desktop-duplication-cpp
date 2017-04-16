@@ -11,9 +11,11 @@ struct window_renderer : base_renderer {
 	void reset();
 
 	float zoom() const { return zoom_m; }
+	POINT offset() const { return { (long)offset_m.x, (long)offset_m.y }; }
 
 	void resize(SIZE size);
 	void setZoom(float zoom);
+	void moveOffset(POINT delta);
 
 	void render();
 	void swap();
@@ -26,7 +28,10 @@ private:
 	void setViewPort();
 
 private:
+	struct vec2f { float x, y; };
+
 	float zoom_m = 1.f;
+	vec2f offset_m = { 0, 0 };
 	SIZE size_m;
 
 	bool resetBuffers_m = false;

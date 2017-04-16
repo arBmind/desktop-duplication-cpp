@@ -8,7 +8,30 @@
 #include "meta/tuple.h"
 #include "meta/scope_guard.h"
 
-constexpr const auto WINDOM_CLASS_NAME = L"desdup";
+#include <windowsx.h>
+
+namespace {
+	constexpr const auto WINDOM_CLASS_NAME = L"desdup";
+
+	bool IsWindowMaximized(HWND windowHandle) {
+		WINDOWPLACEMENT placement{ sizeof(WINDOWPLACEMENT) };
+		auto success = GetWindowPlacement(windowHandle, &placement);
+		return success && placement.showCmd == SW_MAXIMIZE;
+	}
+
+	void ShowWindowBorder(HWND windowHandle, bool shown) {
+		auto style = GetWindowLong(windowHandle, GWL_STYLE);
+		const auto flags = WS_BORDER | WS_SIZEBOX | WS_DLGFRAME;
+		if (shown) {
+			style |= flags;
+		}
+		else {
+			style &= ~flags;
+		}
+
+		SetWindowLong(windowHandle, GWL_STYLE, style);
+	}
+}
 
 struct internal: capture_thread::api{
 	using config = application::config;
@@ -17,19 +40,28 @@ struct internal: capture_thread::api{
 
 	static LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
 		static internal* self = nullptr;
+		static auto armed = false;
+		static auto dragging = false;
+		static LPARAM lastpos;
 		switch (message) {
 		case WM_CREATE:
-		{
-			auto create_struct = reinterpret_cast<LPCREATESTRUCT>(lParam);
-			self = reinterpret_cast<internal*>(create_struct->lpCreateParams);
+			if (nullptr == self) {
+				auto create_struct = reinterpret_cast<LPCREATESTRUCT>(lParam);
+				self = reinterpret_cast<internal*>(create_struct->lpCreateParams);
+			}
 			break;
-		}
+		//case WM_DESTROY: //???
 		case WM_CLOSE:
 			PostQuitMessage(0);
+			break;
+		case WM_LBUTTONDBLCLK:
+			self->toggleMaximized();
 			break;
 		case WM_SIZE:
 			self->handleSizeChanged();
 			break;
+
+		// Zoom
 		case WM_MOUSEWHEEL:
 			if (0 != (GET_KEYSTATE_WPARAM(wParam) & MK_CONTROL)) {
 				auto wheel_delta = float(GET_WHEEL_DELTA_WPARAM(wParam))/(30*WHEEL_DELTA);
@@ -40,6 +72,37 @@ struct internal: capture_thread::api{
 			}
 			break;
 
+		// Offset Dragging
+		case WM_LBUTTONDOWN:
+			if (GET_KEYSTATE_WPARAM(wParam) == (MK_LBUTTON | MK_SHIFT)) {
+				dragging = true;
+				lastpos = lParam;
+			}
+			break;
+		case WM_LBUTTONUP:
+			dragging = false;
+			break;
+		case WM_MOUSEMOVE:
+			if (dragging && GET_KEYSTATE_WPARAM(wParam) == (MK_LBUTTON | MK_SHIFT)) {
+				auto delta = POINT{
+					GET_X_LPARAM(lParam) - GET_X_LPARAM(lastpos),
+					GET_Y_LPARAM(lParam) - GET_Y_LPARAM(lastpos) };
+				self->moveTexture(delta);
+				lastpos = lParam;
+			}
+			break;
+
+		// Fit Other Window
+		case WM_RBUTTONDBLCLK:
+			armed ^= true;
+			break;
+		case WM_KILLFOCUS:
+			if (armed) {
+				armed = false;
+				auto other_window = GetForegroundWindow();
+				self->fitWindow(other_window);
+			}
+			break;
 
 		default:
 			return DefWindowProc(window, message, wParam, lParam);
@@ -60,6 +123,31 @@ struct internal: capture_thread::api{
 		auto zoom = windowRenderer_m.zoom() + zoomDelta;
 		windowRenderer_m.setZoom(std::max(zoom, 0.05f));
 		doRender_m = true;
+	}
+
+	void toggleMaximized() {
+		::ShowWindow(windowHandle_m, IsWindowMaximized(windowHandle_m) ? SW_SHOWNORMAL : SW_MAXIMIZE);
+	}
+
+	void moveTexture(POINT delta) {
+		windowRenderer_m.moveOffset(delta);
+		doRender_m = true;
+	}
+
+	void fitWindow(HWND otherWindow) {
+		RECT window_rect;
+		GetClientRect(windowHandle_m, &window_rect);
+		auto window_size = rectSize(window_rect);
+		RECT other_rect;
+		GetWindowRect(otherWindow, &other_rect);
+		auto zoom = windowRenderer_m.zoom();
+		auto renderOffset = windowRenderer_m.offset();
+		auto left = offset_m.x - renderOffset.x;
+		auto top = offset_m.y - renderOffset.y;
+		auto width = long(window_size.cx / zoom);
+		auto height = long(window_size.cy / zoom);
+		auto repaint = true;
+		MoveWindow(otherWindow, left, top, width, height, repaint);
 	}
 
 	static void registerWindowClass(HINSTANCE instanceHandle) {
@@ -194,10 +282,10 @@ struct internal: capture_thread::api{
 			window_args.deviceContext = device_context;
 			windowRenderer_m.init(std::move(window_args));
 
-			auto offset = POINT{ dimensions.desktop_rect.left, dimensions.desktop_rect.top };
+			offset_m = { dimensions.desktop_rect.left, dimensions.desktop_rect.top };
 			auto handle = renderer::getSharedHandle(target_m);
 			for (auto& capture : captureThreads_m) {
-				startCaptureThread(*capture, offset, handle);
+				startCaptureThread(*capture, offset_m, handle);
 			}
 		}
 		catch (const renderer::error& e) {
@@ -247,6 +335,7 @@ struct internal: capture_thread::api{
 	void render() {
 		if (!doRender_m) return;
 		doRender_m = false;
+		ShowWindowBorder(windowHandle_m, !IsWindowMaximized(windowHandle_m));
 		try {
 			windowRenderer_m.render();
 			windowRenderer_m.swap();
@@ -319,6 +408,7 @@ private:
 	std::exception_ptr error_m;
 	bool doRender_m = false;
 
+	POINT offset_m;
 	window_renderer windowRenderer_m;
 	ComPtr<ID3D11Texture2D> target_m;
 	std::vector<frame_updater> frameUpdaters_m;
