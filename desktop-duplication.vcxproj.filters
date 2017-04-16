@@ -1,61 +1,61 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <FxCompile Include="PixelShader.hlsl" />
-    <FxCompile Include="VertexShader.hlsl" />
+    <FxCompile Include="src\PixelShader.hlsl" />
+    <FxCompile Include="src\VertexShader.hlsl" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="application.cpp" />
-    <ClCompile Include="capture_thread.cpp" />
-    <ClCompile Include="frame_updater.cpp" />
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="renderer.cpp" />
-    <ClCompile Include="window_renderer.cpp" />
-    <ClCompile Include="base_renderer.cpp" />
+    <ClCompile Include="src\application.cpp" />
+    <ClCompile Include="src\capture_thread.cpp" />
+    <ClCompile Include="src\frame_updater.cpp" />
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\renderer.cpp" />
+    <ClCompile Include="src\window_renderer.cpp" />
+    <ClCompile Include="src\base_renderer.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="application.h" />
-    <ClInclude Include="captured_update.h" />
-    <ClInclude Include="capture_thread.h" />
-    <ClInclude Include="frame_updater.h" />
-    <ClInclude Include="renderer.h" />
-    <ClInclude Include="stable.h" />
-    <ClInclude Include="meta\array.h">
+    <ClInclude Include="src\application.h" />
+    <ClInclude Include="src\captured_update.h" />
+    <ClInclude Include="src\capture_thread.h" />
+    <ClInclude Include="src\frame_updater.h" />
+    <ClInclude Include="src\renderer.h" />
+    <ClInclude Include="src\stable.h" />
+    <ClInclude Include="src\window_renderer.h" />
+    <ClInclude Include="src\base_renderer.h" />
+    <ClInclude Include="src\meta\array.h">
       <Filter>meta</Filter>
     </ClInclude>
-    <ClInclude Include="meta\array_view.h">
+    <ClInclude Include="src\meta\array_view.h">
       <Filter>meta</Filter>
     </ClInclude>
-    <ClInclude Include="meta\bits.h">
+    <ClInclude Include="src\meta\bits.h">
       <Filter>meta</Filter>
     </ClInclude>
-    <ClInclude Include="meta\flags.h">
+    <ClInclude Include="src\meta\comptr.h">
       <Filter>meta</Filter>
     </ClInclude>
-    <ClInclude Include="meta\comptr.h">
+    <ClInclude Include="src\meta\flags.h">
       <Filter>meta</Filter>
     </ClInclude>
-    <ClInclude Include="meta\opaque_value.h">
+    <ClInclude Include="src\meta\result.h">
       <Filter>meta</Filter>
     </ClInclude>
-    <ClInclude Include="meta\result.h">
+    <ClInclude Include="src\meta\tuple.h">
       <Filter>meta</Filter>
     </ClInclude>
-    <ClInclude Include="meta\tuple.h">
+    <ClInclude Include="src\meta\scope_guard.h">
       <Filter>meta</Filter>
     </ClInclude>
-    <ClInclude Include="meta\string_view.h">
+    <ClInclude Include="src\meta\opaque_value.h">
       <Filter>meta</Filter>
     </ClInclude>
-    <ClInclude Include="meta\scope_guard.h">
+    <ClInclude Include="src\meta\string_view.h">
       <Filter>meta</Filter>
     </ClInclude>
-    <ClInclude Include="window_renderer.h" />
-    <ClInclude Include="base_renderer.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="meta">
-      <UniqueIdentifier>{963a799d-415f-478b-a5c7-4ada0d181706}</UniqueIdentifier>
+      <UniqueIdentifier>{c1306954-4001-4709-97a0-8b2ff7c09077}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

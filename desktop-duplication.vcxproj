@@ -195,40 +195,40 @@
     </FxCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="application.cpp" />
-    <ClCompile Include="base_renderer.cpp" />
-    <ClCompile Include="capture_thread.cpp" />
-    <ClCompile Include="frame_updater.cpp" />
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="renderer.cpp" />
-    <ClCompile Include="window_renderer.cpp" />
-    <ClInclude Include="application.h" />
-    <ClInclude Include="base_renderer.h" />
-    <ClInclude Include="captured_update.h" />
-    <ClInclude Include="capture_thread.h" />
-    <ClInclude Include="frame_updater.h" />
-    <ClInclude Include="meta\array.h" />
-    <ClInclude Include="meta\array_view.h" />
-    <ClInclude Include="meta\bits.h" />
-    <ClInclude Include="meta\comptr.h" />
-    <ClInclude Include="meta\flags.h" />
-    <ClInclude Include="meta\opaque_value.h" />
-    <ClInclude Include="meta\result.h" />
-    <ClInclude Include="meta\scope_guard.h" />
-    <ClInclude Include="meta\string_view.h" />
-    <ClInclude Include="meta\tuple.h" />
-    <ClInclude Include="renderer.h" />
-    <ClInclude Include="stable.h" />
-    <ClInclude Include="window_renderer.h" />
+    <ClCompile Include="src\application.cpp" />
+    <ClCompile Include="src\base_renderer.cpp" />
+    <ClCompile Include="src\capture_thread.cpp" />
+    <ClCompile Include="src\frame_updater.cpp" />
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\renderer.cpp" />
+    <ClCompile Include="src\window_renderer.cpp" />
+    <ClInclude Include="src\application.h" />
+    <ClInclude Include="src\base_renderer.h" />
+    <ClInclude Include="src\captured_update.h" />
+    <ClInclude Include="src\capture_thread.h" />
+    <ClInclude Include="src\frame_updater.h" />
+    <ClInclude Include="src\meta\array.h" />
+    <ClInclude Include="src\meta\array_view.h" />
+    <ClInclude Include="src\meta\bits.h" />
+    <ClInclude Include="src\meta\comptr.h" />
+    <ClInclude Include="src\meta\flags.h" />
+    <ClInclude Include="src\meta\opaque_value.h" />
+    <ClInclude Include="src\meta\result.h" />
+    <ClInclude Include="src\meta\scope_guard.h" />
+    <ClInclude Include="src\meta\string_view.h" />
+    <ClInclude Include="src\meta\tuple.h" />
+    <ClInclude Include="src\renderer.h" />
+    <ClInclude Include="src\stable.h" />
+    <ClInclude Include="src\window_renderer.h" />
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="PixelShader.hlsl">
+    <FxCompile Include="src\PixelShader.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
     </FxCompile>
-    <FxCompile Include="VertexShader.hlsl">
+    <FxCompile Include="src\VertexShader.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>

@@ -1,0 +1,72 @@
+# Windows Desktop Duplication Tool
+
+This is a little tool for live coding presentations.
+
+I like to see the IDE on my laptop screen. But I don't want to duplicate the screen, so I can see my private notes.
+
+I could not find such a tool, so I created this.
+
+
+## Features
+
+By default the primary screen is duplicated to a window.
+
+Interactions:
+
+* Move the window whereever you need it. Beamers for live coding and presentations.
+* You can resize the window as you like. This changes the portion of the screen that is visible.
+* Double Left Mouseclick maximizes the window.
+* Maximized window looses the window frame. Ideal for presentations.
+* CTRL + Mousewheel allows you to zoom
+* CTRL + SHIFT + Mousewheel zooms in smaller steps
+* SHIFT + Left Mouse Button + Panning allows you to move the visible portion
+* Double Right Mouseclick + Select another window will position and resize this window to fit in the visible area. (Not all windows will like this.)
+
+The tool is optimized to be very response and save CPU time.
+
+## History
+
+### 2.0 - TBA
+
+* Your Ideas are welcome (see Contributions)
+
+### 1.0 - 2017-04-16 (Revision Easter Release)
+
+* first public version
+* hand crafted at the Revision Demo Party
+* basic features are working
+
+## Requirements
+
+* DirectX 9+
+* Windows 8.1+
+
+
+## Build
+
+The tool was build using Visual Studio 2017.
+I made use of modern C++ 14 and beyond features.
+
+The only other thing you need is the DirectX and Windows and WRL headers. All included in the Windows 10 SDK.
+
+If you have issues please ask.
+
+
+## License
+
+Read the LICENSE file!
+
+
+## Contributions
+
+If you have issues or questions feel free to open a ticket.
+
+If you can answer a question in a ticket, help is appriciated.
+
+If you like the tool, leave a star on Github and spread the love.
+
+All usefull pull requests are welcome! If you have an idea and are unsure, please open a ticket for discussions.
+
+Enjoy!
+
+## \0
