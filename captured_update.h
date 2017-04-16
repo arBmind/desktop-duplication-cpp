@@ -12,6 +12,7 @@ using dirty_view = array_view<const RECT>;
 
 struct captured_update {
 	ComPtr<ID3D11Texture2D> desktop_image;
+
 	DXGI_OUTDUPL_FRAME_INFO info;
 	std::vector<uint8_t> meta_data;
 	uint32_t move_bytes = 0;

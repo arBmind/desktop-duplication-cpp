@@ -1,6 +1,7 @@
 #include "capture_thread.h"
 
 #include "application.h"
+#include "renderer.h"
 
 #include "meta/scope_guard.h"
 
@@ -22,18 +23,18 @@ namespace {
 
 HANDLE GetCurrentThreadHandle() {
 	HANDLE output;
-	auto inheritHandle = false;
+	auto inherit_handle = false;
 	auto success = DuplicateHandle(
 		GetCurrentProcess(), GetCurrentThread(),
 		GetCurrentProcess(), &output,
-		0, inheritHandle, DUPLICATE_SAME_ACCESS);
+		0, inherit_handle, DUPLICATE_SAME_ACCESS);
 	if (!success) throw Unexpected{ "could not get thread handle" };
 	return output;
 }
 
-std::thread capture_thread::start(ComPtr<ID3D11Device> device, POINT offset) {
-	device_m = device;
-	context_m.offset = offset;
+std::thread capture_thread::start(start_args&& args) {
+	device_m = std::move(args.device);
+	context_m.offset = args.offset;
 	keepRunning_m = true;
 	doCapture_m = true;
 	return std::thread([=] { run(); });
@@ -68,7 +69,7 @@ void capture_thread::run() {
 	const auto alertable = true;
 	try {
 		setDesktop();
-		initDupl();
+		initDuplication();
 		while (keepRunning_m) {
 			if (doCapture_m) {
 				auto frame = captureFrame();
@@ -89,7 +90,7 @@ void capture_thread::run() {
 	}
 }
 
-void capture_thread::initDupl() {
+void capture_thread::initDuplication() {
 	ComPtr<IDXGIDevice> dxgi_device;
 	auto result = device_m.As(&dxgi_device);
 	if (IS_ERROR(result)) throw Unexpected{ "Failed to get IDXGIDevice from device" };
@@ -145,9 +146,6 @@ std::optional<captured_update> capture_thread::captureFrame() {
 	if (DXGI_ERROR_WAIT_TIMEOUT == result) return {};
 	if (IS_ERROR(result)) throw Expected{ "Failed to acquire next frame in capture_thread" };
 
-	result = resource.As(&frame.desktop_image);
-	if (IS_ERROR(result)) throw Unexpected{ "Failed to get ID3D11Texture2D from resource in capture_thread" };
-
 	if (0 != frame.info.TotalMetadataBufferSize) {
 		frame.meta_data.resize(frame.info.TotalMetadataBufferSize);
 
@@ -174,6 +172,10 @@ std::optional<captured_update> capture_thread::captureFrame() {
 			pointer_ptr, &frame.pointer_bytes, 
 			&frame.pointer_shape);
 		if (IS_ERROR(result)) throw Expected{ "Failed to get frame pointer shape in capture_thread" };
+	}
+	if (!frame.dirty().empty()) {
+		result = resource.As(&frame.desktop_image);
+		if (IS_ERROR(result)) throw Unexpected{ "Failed to get ID3D11Texture from resource in capture_thread" };
 	}
 	return frame;
 }

@@ -2,3 +2,5 @@
 .vs/
 x64/Debug/
 x64/Release/
+VertexShader.h
+PixelShader.h

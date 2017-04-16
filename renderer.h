@@ -2,10 +2,12 @@
 #include "stable.h"
 
 #include "meta/comptr.h"
-#include "meta/result.h"
 
 #include <vector>
-#include <optional>
+
+inline SIZE rectSize(const RECT& rect) {
+	return SIZE{ rect.right - rect.left, rect.bottom - rect.top };
+}
 
 namespace renderer {
 	struct error {
@@ -31,60 +33,12 @@ namespace renderer {
 
 	dimension_data getDesktopData(const ComPtr<ID3D11Device>& device, const std::vector<int> desktops);
 
-	ComPtr<ID3D11Texture2D> createTexture(const ComPtr<ID3D11Device>& device, RECT dimensions);
+	ComPtr<ID3D11Texture2D> createTexture(const ComPtr<ID3D11Device>& device, SIZE size);
+	ComPtr<ID3D11Texture2D> createSharedTexture(const ComPtr<ID3D11Device>& device, SIZE size);
+
+	// note: Do N-O-T close this handle!
+	HANDLE getSharedHandle(const ComPtr<ID3D11Texture2D>& texture);
+	ComPtr<ID3D11Texture2D> getTextureFromHandle(const ComPtr<ID3D11Device>& device, HANDLE handle);
+
 	ComPtr<ID3D11RenderTargetView> renderToTexture(const ComPtr<ID3D11Device>& device, const ComPtr<ID3D11Texture2D>& texture);
-
-
-	struct device_args {
-		ComPtr<ID3D11Device> device;
-		ComPtr<ID3D11DeviceContext> deviceContext;
-		ComPtr<IDXGISwapChain1> swapChain;
-	};
-
-	struct device {
-		static device create(const device_args& args);
-		device() = default;
-		device(const device&) = default;
-		device(device&&) = default;
-		device& operator =(const device&) = default;
-		device& operator =(device&&) = default;
-
-		void reset();
-
-		float zoom() const { return zoom_m; }
-
-		void resize(int width, int height);
-		void setZoom(float zoom);
-
-		void render(ComPtr<ID3D11Texture2D> texture);
-		void swap();
-
-	private:
-		device(const device_args & args, int width, int height);
-
-		void makeRenderTarget();
-		void createSamplerState();
-		void createBlendState();
-		void createVertexShader();
-		void createPixelShader();
-
-		void resizeSwapBuffer();
-		void setViewPort();
-
-	private:
-		int width_m, height_m;
-		float zoom_m = 1.f;
-
-		ComPtr<ID3D11Device> device_m;
-		ComPtr<ID3D11DeviceContext> deviceContext_m;
-		ComPtr<IDXGISwapChain1> swapChain_m;
-		ComPtr<ID3D11RenderTargetView> renderTarget_m;
-
-		ComPtr<ID3D11SamplerState> samplerState_m;
-		ComPtr<ID3D11BlendState> blendState_m;
-
-		ComPtr<ID3D11VertexShader> vertexShader_m;
-		ComPtr<ID3D11InputLayout> inputLayout_m;
-		ComPtr<ID3D11PixelShader> pixelShader_m;
-	};
 }

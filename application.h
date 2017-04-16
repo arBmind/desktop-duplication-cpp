@@ -6,12 +6,15 @@
 
 struct application {
 	struct config {
+		HINSTANCE instanceHandle;
+		bool showCommand;
+
 		std::vector<int> displays;
 		float zoom = 1;
 		//RECT rect;
 	};
 
-	application(HWND window, config&& cfg);
+	application(config&& cfg);
 
 	int run();
 

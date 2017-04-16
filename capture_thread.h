@@ -12,7 +12,6 @@
 #include <optional>
 #include <thread>
 
-
 struct Unexpected {
 	const char* text;
 };
@@ -29,16 +28,20 @@ struct capture_thread {
 		void setError(std::exception_ptr error);
 		void setFrame(captured_update&& frame, const frame_data& context, int thread_index);
 	};
+	struct start_args {
+		ComPtr<ID3D11Device> device; // unique capture device
+		POINT offset;
+	};
 
 	capture_thread(int display, api* api, int index)
 		: api_m(api)
 		, display_m(display)
 		, index_m(index) {}
 
-	std::thread start(ComPtr<ID3D11Device> device, POINT offset);
+	std::thread start(start_args&& args); // start a stopped thread
 
-	void next();
-	void stop();
+	void next(); // thread starts to capture the next frame
+	void stop(); // signal thread to stop, use join to wait!
 
 private:
 	static void WINAPI stopAPC(ULONG_PTR);
@@ -46,7 +49,7 @@ private:
 
 	void run();
 
-	void initDupl();
+	void initDuplication();
 	void handleDeviceError(const char* text, HRESULT result, std::initializer_list<HRESULT> expected);
 	std::optional<captured_update> captureFrame();
 
@@ -54,7 +57,7 @@ private:
 	int display_m;
 	int index_m;
 	api* api_m;
-	frame_data context_m;
+	frame_data context_m; 
 	ComPtr<ID3D11Device> device_m;
 	HANDLE threadHandle_m;
 	bool keepRunning_m = true;

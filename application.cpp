@@ -3,21 +3,111 @@
 #include "capture_thread.h"
 #include "renderer.h"
 #include "frame_updater.h"
+#include "window_renderer.h"
 
 #include "meta/tuple.h"
 #include "meta/scope_guard.h"
 
-struct internal : capture_thread::api {
+constexpr const auto WINDOM_CLASS_NAME = L"desdup";
+
+struct internal: capture_thread::api{
 	using config = application::config;
 
-	internal(HWND window, config && cfg)
-		: window_m(window), config_m(cfg) {
+	internal(config&& cfg) : config_m(std::move(cfg)) {}
 
-		int index = 0;
-		for (auto display : config_m.displays) {
-			capture_threads_m.emplace_back(new capture_thread(display, this, index++));
+	static LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
+		static internal* self = nullptr;
+		switch (message) {
+		case WM_CREATE:
+		{
+			auto create_struct = reinterpret_cast<LPCREATESTRUCT>(lParam);
+			self = reinterpret_cast<internal*>(create_struct->lpCreateParams);
+			break;
 		}
-		threads_m.reserve(config_m.displays.size());
+		case WM_CLOSE:
+			PostQuitMessage(0);
+			break;
+		case WM_SIZE:
+			self->handleSizeChanged();
+			break;
+		case WM_MOUSEWHEEL:
+			if (0 != (GET_KEYSTATE_WPARAM(wParam) & MK_CONTROL)) {
+				auto wheel_delta = float(GET_WHEEL_DELTA_WPARAM(wParam))/(30*WHEEL_DELTA);
+				if (0 != (GET_KEYSTATE_WPARAM(wParam) & MK_SHIFT)) {
+					wheel_delta /= 10.f;
+				}
+				self->changeZoom(wheel_delta);
+			}
+			break;
+
+
+		default:
+			return DefWindowProc(window, message, wParam, lParam);
+		}
+		return 0;
+	}
+
+	void handleSizeChanged() {
+		if (!duplicationStarted_m) return;
+		RECT rect;
+		GetClientRect(windowHandle_m, &rect);
+		windowRenderer_m.resize(rectSize(rect));
+		doRender_m = true;
+	}
+
+	void changeZoom(float zoomDelta) {
+		if (!duplicationStarted_m) return;
+		auto zoom = windowRenderer_m.zoom() + zoomDelta;
+		windowRenderer_m.setZoom(std::max(zoom, 0.05f));
+		doRender_m = true;
+	}
+
+	static void registerWindowClass(HINSTANCE instanceHandle) {
+		auto cursor = LoadCursor(nullptr, IDC_CROSS);
+		if (!cursor) throw Unexpected{ "LoadCursor failed" };
+		LATER(DestroyCursor(cursor));
+
+		WNDCLASSEXW window_class;
+		window_class.cbSize = sizeof(WNDCLASSEXW);
+		window_class.style = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
+		window_class.lpfnWndProc = windowProc;
+		window_class.cbClsExtra = 0;
+		window_class.cbWndExtra = 0;
+		window_class.hInstance = instanceHandle;
+		window_class.hIcon = nullptr;
+		window_class.hCursor = cursor;
+		window_class.hbrBackground = nullptr;
+		window_class.lpszMenuName = nullptr;
+		window_class.lpszClassName = WINDOM_CLASS_NAME;
+		window_class.hIconSm = nullptr;
+
+		auto success = RegisterClassExW(&window_class);
+		if (!success) throw Unexpected{ "Window class registration failed" };
+	}
+
+	HWND createMainWindow(HINSTANCE instanceHandle, int showCommand) {
+		auto rect = RECT{ 100, 100, 924, 678 };
+		auto style = WS_OVERLAPPEDWINDOW;
+		auto has_menu = false;
+		AdjustWindowRect(&rect, style, has_menu);
+
+		static const auto title = L"Duplicate Desktop Presenter (Double Click to toggle fullscreen)";
+		auto width = rect.right - rect.left;
+		auto height = rect.bottom - rect.top;
+		auto parent_window = nullptr;
+		auto menu = nullptr;
+		auto custom_param = this;
+		auto window_handle = CreateWindowW(WINDOM_CLASS_NAME, title,
+			style,
+			rect.left, rect.top,
+			width, height,
+			parent_window, menu, instanceHandle, custom_param);
+		if (!window_handle) throw Unexpected{ "Window creation failed" };
+
+		ShowWindow(window_handle, showCommand);
+		UpdateWindow(window_handle);
+
+		return window_handle;
 	}
 
 	static void WINAPI setErrorAPC(ULONG_PTR parameter) {
@@ -29,9 +119,33 @@ struct internal : capture_thread::api {
 		std::get<internal*>(*args)->updateFrame(std::get<1>(*args), std::get<2>(*args), std::get<3>(*args));
 	}
 
+	void initCaptureThreads() {
+		auto threadIndex = 0;
+		for (auto display : config_m.displays) {
+			captureThreads_m.emplace_back(new capture_thread(display, this, threadIndex++));
+		}
+		threads_m.reserve(config_m.displays.size());
+	}
+
 	int run() {
-		threadHandle_m = GetCurrentThreadHandle();
-		LATER(CloseHandle(threadHandle_m));
+		try {
+			registerWindowClass(config_m.instanceHandle);
+			threadHandle_m = GetCurrentThreadHandle();
+			LATER(CloseHandle(threadHandle_m));
+
+			windowHandle_m = createMainWindow(config_m.instanceHandle, config_m.showCommand);
+			initCaptureThreads();
+
+			return mainLoop();
+		}
+		catch (const Unexpected& e) {
+			OutputDebugStringA(e.text);
+			OutputDebugStringA("\n");
+			return -1;
+		}
+	}
+
+	int mainLoop() {
 		while (keepRunning_m) {
 			try {
 				startDuplication();
@@ -65,34 +179,25 @@ struct internal : capture_thread::api {
 		if (duplicationStarted_m) return;
 		duplicationStarted_m = true;
 		try {
-			auto deviceValue = renderer::createDevice();
-			auto device = deviceValue.device;
-			auto deviceContext = deviceValue.deviceContext;
-
-			auto factory = renderer::getFactory(device);
-
-			auto swapChain = renderer::createSwapChain(factory, device, window_m);
-
-			renderer::device_args args;
-			args.device = device;
-			args.deviceContext = deviceContext;
-			args.swapChain = swapChain;
-			renderDevice_m = renderer::device::create(args);
+			auto device_value = renderer::createDevice();
+			auto device = device_value.device;
+			auto device_context = device_value.deviceContext;
 
 			auto dimensions = renderer::getDesktopData(device, config_m.displays);
 
-			target_m = renderer::createTexture(device, dimensions.desktop_rect);
+			target_m = renderer::createSharedTexture(device, rectSize(dimensions.desktop_rect));
 
-			frame_updater::setup setup;
-			setup.device = device;
-			setup.deviceContext = deviceContext;
-			setup.target = target_m;
-			setup.renderTarget = renderer::renderToTexture(device, target_m);
-			frame_updater_m.init(setup);
+			window_renderer::init_args window_args;
+			window_args.windowHandle = windowHandle_m;
+			window_args.texture = target_m;
+			window_args.device = device;
+			window_args.deviceContext = device_context;
+			windowRenderer_m.init(std::move(window_args));
 
 			auto offset = POINT{ dimensions.desktop_rect.left, dimensions.desktop_rect.top };
-			for (auto& capture : capture_threads_m) {
-				threads_m.emplace_back(capture->start(device, offset));
+			auto handle = renderer::getSharedHandle(target_m);
+			for (auto& capture : captureThreads_m) {
+				startCaptureThread(*capture, offset, handle);
 			}
 		}
 		catch (const renderer::error& e) {
@@ -100,10 +205,27 @@ struct internal : capture_thread::api {
 		}
 	}
 
+	void startCaptureThread(capture_thread& capture, const POINT& offset, HANDLE targetHandle) {
+		auto device_value = renderer::createDevice();
+		auto device = device_value.device;
+		auto device_context = device_value.deviceContext;
+
+		frame_updater::init_args updater_args;
+		updater_args.device = device;
+		updater_args.deviceContext = device_context;
+		updater_args.targetHandle = targetHandle;
+		frameUpdaters_m.emplace_back(std::move(updater_args));
+
+		capture_thread::start_args args;
+		args.device = device;
+		args.offset = offset;
+		threads_m.emplace_back(capture.start(std::move(args)));
+	}
+
 	void stopDuplication() {
 		if (!duplicationStarted_m) return;
 		try {
-			for (auto& capture : capture_threads_m) {
+			for (auto& capture : captureThreads_m) {
 				capture->stop();
 			}
 			for (auto& thread : threads_m) {
@@ -111,8 +233,8 @@ struct internal : capture_thread::api {
 			}
 			threads_m.clear();
 			target_m.Reset();
-			frame_updater_m.done();
-			renderDevice_m.reset();
+			frameUpdaters_m.clear();
+			windowRenderer_m.reset();
 		}
 		catch (Expected& e) {
 			OutputDebugStringA("stopDuplication Threw: ");
@@ -126,11 +248,11 @@ struct internal : capture_thread::api {
 		if (!doRender_m) return;
 		doRender_m = false;
 		try {
-			renderDevice_m.render(target_m);
-			renderDevice_m.swap();
-			auto clone = updated_threads_m;
-			updated_threads_m.clear();
-			for (auto index : clone) capture_threads_m[index]->next();
+			windowRenderer_m.render();
+			windowRenderer_m.swap();
+			auto clone = updatedThreads_m;
+			updatedThreads_m.clear();
+			for (auto index : clone) captureThreads_m[index]->next();
 		}
 		catch (const renderer::error& e) {
 			throw Expected{ e.message };
@@ -143,11 +265,11 @@ struct internal : capture_thread::api {
 	}
 
 	void sleep(int timeout = INFINITE) {
-		auto wakeMask = QS_ALLINPUT;
+		auto wake_mask = QS_ALLINPUT;
 		auto flags = MWMO_ALERTABLE | MWMO_INPUTAVAILABLE;
 		auto awoken = MsgWaitForMultipleObjectsEx(
 			(uint32_t)handles_m.size(), handles_m.data(),
-			timeout, wakeMask, flags);
+			timeout, wake_mask, flags);
 		if (WAIT_FAILED == awoken)
 			throw Unexpected{ "Application Waiting failed" };
 		if (WAIT_OBJECT_0 == awoken - handles_m.size())
@@ -155,14 +277,16 @@ struct internal : capture_thread::api {
 	}
 
 	void processMessages() {
-		auto msg = MSG{};
-		auto hasMsg = PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE);
-		if (!hasMsg) return;
-		TranslateMessage(&msg);
-		DispatchMessage(&msg);
-		if (WM_QUIT == msg.message) {
-			keepRunning_m = false;
-			returnValue_m = (int)msg.wParam;
+		while (true) {
+			auto message = MSG{};
+			auto success = PeekMessage(&message, nullptr, 0, 0, PM_REMOVE);
+			if (!success) return;
+			TranslateMessage(&message);
+			DispatchMessage(&message);
+			if (WM_QUIT == message.message) {
+				keepRunning_m = false;
+				returnValue_m = (int)message.wParam;
+			}
 		}
 	}
 
@@ -177,14 +301,14 @@ struct internal : capture_thread::api {
 		hasError_m = true;
 	}
 	void updateFrame(captured_update& frame, const frame_data& context, int thread_index) {
-		frame_updater_m.update(frame, context);
-		updated_threads_m.push_back(thread_index);
+		frameUpdaters_m[thread_index].update(frame, context);
+		updatedThreads_m.push_back(thread_index);
 		doRender_m = true;
 	}
 
 private:
-	HWND window_m;
 	config config_m;
+	HWND windowHandle_m;
 public:
 	HANDLE threadHandle_m;
 private:
@@ -195,24 +319,24 @@ private:
 	std::exception_ptr error_m;
 	bool doRender_m = false;
 
-	renderer::device renderDevice_m;
+	window_renderer windowRenderer_m;
 	ComPtr<ID3D11Texture2D> target_m;
-	frame_updater frame_updater_m;
+	std::vector<frame_updater> frameUpdaters_m;
 
 	using capture_thread_ptr = std::unique_ptr<capture_thread>;
 
 	std::vector<HANDLE> handles_m;
 	std::vector<std::thread> threads_m;
-	std::vector<capture_thread_ptr> capture_threads_m;
-	std::vector<int> updated_threads_m;
+	std::vector<capture_thread_ptr> captureThreads_m;
+	std::vector<int> updatedThreads_m;
 };
 
 struct application::internal: ::internal {
 	using ::internal::internal;
 };
 
-application::application(HWND window, config&& cfg)
-	: ip(internal_ptr{ new internal(window, std::move(cfg)) }) {}
+application::application(config&& cfg)
+	: ip(internal_ptr{ new internal(std::move(cfg)) }) {}
 
 int application::run() {
 	return ip->run();
