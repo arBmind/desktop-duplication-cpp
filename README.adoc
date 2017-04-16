@@ -17,10 +17,10 @@ Interactions:
 * You can resize the window as you like. This changes the portion of the screen that is visible.
 * Double Left Mouseclick maximizes the window.
 * Maximized window looses the window frame. Ideal for presentations.
-* CTRL + Mousewheel allows you to zoom
-* CTRL + SHIFT + Mousewheel zooms in smaller steps
-* SHIFT + Left Mouse Button + Panning allows you to move the visible portion
-* Double Right Mouseclick + Select another window will position and resize this window to fit in the visible area. (Not all windows will like this.)
+* pass:[<kbd>Ctrl</kbd>] + [Mousewheel] allows you to zoom
+* pass:[<kbd>Ctrl</kbd><kbd>Shift</kbd>] + [Mousewheel] zooms in smaller steps
+* pass:[<kbd>Shift</kbd>] + [Left Mouse Button Dragging] allows you to move the visible portion
+* [Double Right Mouseclick] + [Focus other Window] will position and resize the other window into the mirrored area. Not all windows will like this.
 
 The tool is optimized to be very response and save CPU time.
 
