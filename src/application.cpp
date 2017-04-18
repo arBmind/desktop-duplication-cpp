@@ -180,15 +180,14 @@ struct internal: capture_thread::api{
 		AdjustWindowRect(&rect, style, has_menu);
 
 		static const auto title = L"Duplicate Desktop Presenter (Double Click to toggle fullscreen)";
-		auto width = rect.right - rect.left;
-		auto height = rect.bottom - rect.top;
+		auto size = rectSize(rect);
 		auto parent_window = nullptr;
 		auto menu = nullptr;
 		auto custom_param = this;
 		auto window_handle = CreateWindowW(WINDOM_CLASS_NAME, title,
 			style,
 			rect.left, rect.top,
-			width, height,
+			size.cx, size.cy,
 			parent_window, menu, instanceHandle, custom_param);
 		if (!window_handle) throw Unexpected{ "Window creation failed" };
 
