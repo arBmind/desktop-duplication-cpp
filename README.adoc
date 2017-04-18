@@ -4,6 +4,8 @@ This is a little tool for live coding presentations.
 
 I like to see the IDE on my laptop screen. But I don't want to duplicate the screen, so I can see my private notes.
 
+image::/docs/usage-schema.png?raw=true[Usage Schema,583,168]
+
 I could not find such a tool, so I created this.
 
 
