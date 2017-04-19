@@ -167,10 +167,11 @@ std::optional<captured_update> capture_thread::captureFrame() {
 		frame.pointer_data.resize(frame.info.PointerShapeBufferSize);
 
 		auto pointer_ptr = frame.pointer_data.data();
+		UINT size_required_dummy;
 		result = dupl_m->GetFramePointerShape(
-			(uint32_t)frame.pointer_data.size(),
-			pointer_ptr, &frame.pointer_bytes, 
-			&frame.pointer_shape);
+			(uint32_t)frame.pointer_data.size(), pointer_ptr, 
+			&size_required_dummy, &frame.pointer_info);
+		// size_required_dummy == frame.pointer_data.size()
 		if (IS_ERROR(result)) throw Expected{ "Failed to get frame pointer shape in capture_thread" };
 	}
 	if (!frame.dirty().empty()) {

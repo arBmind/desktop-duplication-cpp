@@ -200,12 +200,14 @@
     <ClCompile Include="src\capture_thread.cpp" />
     <ClCompile Include="src\frame_updater.cpp" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\pointer_updater.cpp" />
     <ClCompile Include="src\renderer.cpp" />
     <ClCompile Include="src\window_renderer.cpp" />
     <ClInclude Include="src\application.h" />
     <ClInclude Include="src\base_renderer.h" />
     <ClInclude Include="src\captured_update.h" />
     <ClInclude Include="src\capture_thread.h" />
+    <ClInclude Include="src\frame_context.h" />
     <ClInclude Include="src\frame_updater.h" />
     <ClInclude Include="src\meta\array.h" />
     <ClInclude Include="src\meta\array_view.h" />
@@ -217,6 +219,7 @@
     <ClInclude Include="src\meta\scope_guard.h" />
     <ClInclude Include="src\meta\string_view.h" />
     <ClInclude Include="src\meta\tuple.h" />
+    <ClInclude Include="src\pointer_updater.h" />
     <ClInclude Include="src\renderer.h" />
     <ClInclude Include="src\stable.h" />
     <ClInclude Include="src\window_renderer.h" />

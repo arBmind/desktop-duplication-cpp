@@ -18,8 +18,7 @@ struct captured_update {
 	uint32_t move_bytes = 0;
 	uint32_t dirty_bytes = 0;
 	std::vector<uint8_t> pointer_data;
-	uint32_t pointer_bytes = 0;
-	DXGI_OUTDUPL_POINTER_SHAPE_INFO pointer_shape;
+	DXGI_OUTDUPL_POINTER_SHAPE_INFO pointer_info;
 
 	move_view moved() const {
 		return move_view::from_bytes(meta_data.data(), move_bytes);

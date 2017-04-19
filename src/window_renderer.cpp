@@ -1,4 +1,5 @@
 #include "window_renderer.h"
+#include "pointer_updater.h"
 
 #include "renderer.h"
 
@@ -26,10 +27,11 @@ void window_renderer::reset() {
 	base_renderer::reset();
 }
 
-void window_renderer::resize(SIZE size) {
-	if (size.cx == size_m.cx && size.cy == size_m.cy) return;
+bool window_renderer::resize(SIZE size) {
+	if (size.cx == size_m.cx && size.cy == size_m.cy) return false;
 	size_m = size;
-	resetBuffers_m = true;
+	pendingResizeBuffers_m = true;
+	return true;
 }
 
 void window_renderer::setZoom(float zoom) {
@@ -47,52 +49,12 @@ void window_renderer::moveOffset(POINT delta) {
 }
 
 void window_renderer::render() {
-	if (resetBuffers_m) {
-		resetBuffers_m = false;
+	if (pendingResizeBuffers_m) {
+		pendingResizeBuffers_m = false;
 		renderTarget_m.Reset();
 		resizeSwapBuffer();
 		makeRenderTarget();
 	}
-	//{
-	//	D3D11_TEXTURE2D_DESC texture_description;
-	//	texture->GetDesc(&texture_description);
-
-	//	D3D11_TEXTURE2D_DESC description;
-	//	RtlZeroMemory(&description, sizeof(D3D11_TEXTURE2D_DESC));
-	//	description.Width = 2;
-	//	description.Height = 2;
-	//	description.MipLevels = 1;
-	//	description.ArraySize = 1;
-	//	description.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	//	description.SampleDesc.Count = 1;
-	//	description.Usage = D3D11_USAGE_DEFAULT;
-	//	description.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-	//	//description.MiscFlags = D3D11_RESOURCE_MISC_SHARED;
-
-	//	using color4b = uint8_t[4];
-	//	static const color4b buffer[] = {
-	//		{ 255, 0, 0, 0 },
-	//		{ 0, 255, 0, 0 },
-	//		{ 0, 0, 255, 255 },
-	//		{ 128, 128, 128, 255 }
-	//	};
-	//	D3D11_SUBRESOURCE_DATA data;
-	//	data.pSysMem = buffer;
-	//	data.SysMemPitch = 2 * sizeof(color4b);
-	//	data.SysMemSlicePitch = sizeof(buffer);
-
-	//	auto result = device_m->CreateTexture2D(&description, &data, &texture);
-	//	if (IS_ERROR(result)) throw error{ result, "Failed to create texture" };
-	//}
-
-	static const Vertex vertices[] = {
-		Vertex{ -1.0f, -1.0f, 0.f, 0.0f, 1.0f },
-		Vertex{ -1.0f, 1.0f, 0.f, 0.0f, 0.0f },
-		Vertex{ 1.0f, -1.0f, 0.f, 1.0f, 1.0f },
-		Vertex{ 1.0f, -1.0f, 0.f, 1.0f, 1.0f },
-		Vertex{ -1.0f, 1.0f, 0.f, 0.0f, 0.0f },
-		Vertex{ 1.0f,  1.0f, 0.f, 1.0f, 0.0f }
-	};
 
 	using Color = float[4];
 	auto color = Color{ 0, 0, 0, 0 };
@@ -116,10 +78,19 @@ void window_renderer::render() {
 
 	deviceContext_m->PSSetShaderResources(0, 1, shader_resource.GetAddressOf());
 
-	//vector4f blendFactor = { 0.f, 0.f, 0.f, 0.f };
-	//uint32_t sampleMask = 0xffffffff;
-	//deviceContext_m->OMSetBlendState(nullptr, blendFactor, sampleMask);
+	float blendFactor[] = { 0.f, 0.f, 0.f, 0.f };
+	uint32_t sampleMask = 0xffffffff;
+	deviceContext_m->OMSetBlendState(nullptr, blendFactor, sampleMask);
 	deviceContext_m->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	static const Vertex vertices[] = {
+		Vertex{ -1.0f, -1.0f, 0.f, 0.0f, 1.0f },
+		Vertex{ -1.0f, 1.0f, 0.f, 0.0f, 0.0f },
+		Vertex{ 1.0f, -1.0f, 0.f, 1.0f, 1.0f },
+		Vertex{ 1.0f, -1.0f, 0.f, 1.0f, 1.0f },
+		Vertex{ -1.0f, 1.0f, 0.f, 0.0f, 0.0f },
+		Vertex{ 1.0f,  1.0f, 0.f, 1.0f, 0.0f }
+	};
 
 	D3D11_BUFFER_DESC buffer_description;
 	RtlZeroMemory(&buffer_description, sizeof(buffer_description));
@@ -136,13 +107,155 @@ void window_renderer::render() {
 	result = device_m->CreateBuffer(&buffer_description, &init_data, &vertex_buffer);
 	if (IS_ERROR(result)) throw error{ result, "Failed to create vertex buffer" };
 
-	uint32_t stride = sizeof(Vertex);
-	uint32_t offset = 0;
+	uint32_t stride = sizeof(Vertex), offset = 0;
 	deviceContext_m->IASetVertexBuffers(0, 1, vertex_buffer.GetAddressOf(), &stride, &offset);
+
 	uint32_t numVertices = (uint32_t)sizeof(vertices) / sizeof(Vertex);
 	deviceContext_m->Draw(numVertices, 0);
 
 	deviceContext_m->OMSetRenderTargets(0, nullptr, nullptr);
+}
+
+void window_renderer::renderMouse(const pointer_data & pointer) {
+	switch (pointer.shape_info.Type) {
+	case DXGI_OUTDUPL_POINTER_SHAPE_TYPE_COLOR:
+		break;
+
+	case DXGI_OUTDUPL_POINTER_SHAPE_TYPE_MONOCHROME:
+		return;
+
+	case DXGI_OUTDUPL_POINTER_SHAPE_TYPE_MASKED_COLOR:		
+		return; // TODO
+
+	default:
+		return; // invalid
+	}
+
+	const auto size = SIZE{ 
+		(int)pointer.shape_info.Width, 
+		(int)pointer.shape_info.Height 
+	};
+
+	ComPtr<ID3D11Buffer> vertex_buffer;
+	uint32_t vertice_count;
+	{
+		Vertex vertices[] = {
+			Vertex{ -1.0f, -1.0f, 0.f, 0.0f, 1.0f },
+			Vertex{ -1.0f, 1.0f, 0.f, 0.0f, 0.0f },
+			Vertex{ 1.0f, -1.0f, 0.f, 1.0f, 1.0f },
+			Vertex{ 1.0f, -1.0f, 0.f, 1.0f, 1.0f },
+			Vertex{ -1.0f, 1.0f, 0.f, 0.0f, 0.0f },
+			Vertex{ 1.0f,  1.0f, 0.f, 1.0f, 0.0f }
+		};
+		vertice_count = sizeof(vertices) / sizeof(Vertex);
+
+		D3D11_TEXTURE2D_DESC texture_description;
+		texture_m->GetDesc(&texture_description);
+		auto texture_size = SIZE{ (int)texture_description.Width, (int)texture_description.Height };
+		auto center = POINT{ texture_size.cx / 2, texture_size.cy / 2 };
+
+		auto position = pointer.position;
+
+		auto mouse_to_desktop = [&](Vertex& v, int x, int y) {
+			v.x = (position.x + x - center.x) / float(center.x);
+			v.y = -1 * (position.y + y - center.y) / float(center.y);
+		};
+		mouse_to_desktop(vertices[0], 0, size.cy);
+		mouse_to_desktop(vertices[1], 0, 0);
+		mouse_to_desktop(vertices[2], size.cx, size.cy);
+		mouse_to_desktop(vertices[3], size.cx, size.cy);
+		mouse_to_desktop(vertices[4], 0, 0);
+		mouse_to_desktop(vertices[5], size.cx, 0);
+
+		D3D11_BUFFER_DESC buffer_description;
+		ZeroMemory(&buffer_description, sizeof(D3D11_BUFFER_DESC));
+		buffer_description.Usage = D3D11_USAGE_DEFAULT;
+		buffer_description.ByteWidth = sizeof(vertices);
+		buffer_description.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+
+		D3D11_SUBRESOURCE_DATA resource_data;
+		ZeroMemory(&resource_data, sizeof(D3D11_SUBRESOURCE_DATA));
+		resource_data.pSysMem = vertices;
+
+		auto result = device_m->CreateBuffer(&buffer_description, &resource_data, &vertex_buffer);
+	}
+	ComPtr<ID3D11Texture2D> texture;
+	ComPtr<ID3D11ShaderResourceView> shader_resource;
+	{
+		//D3D11_TEXTURE2D_DESC texture_description;
+		//RtlZeroMemory(&texture_description, sizeof(D3D11_TEXTURE2D_DESC));
+		//texture_description.Width = 2;
+		//texture_description.Height = 2;
+		//texture_description.MipLevels = 1;
+		//texture_description.ArraySize = 1;
+		//texture_description.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		//texture_description.SampleDesc.Count = 1;
+		//texture_description.Usage = D3D11_USAGE_DEFAULT;
+		//texture_description.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+		////description.MiscFlags = D3D11_RESOURCE_MISC_SHARED;
+
+		//using color4b = uint8_t[4];
+		//static const color4b buffer[] = {
+		//	{ 255, 0, 0, 0 },
+		//	{ 0, 255, 0, 0 },
+		//	{ 0, 0, 255, 255 },
+		//	{ 128, 128, 128, 255 }
+		//};
+		//D3D11_SUBRESOURCE_DATA data;
+		//data.pSysMem = buffer;
+		//data.SysMemPitch = 2 * sizeof(color4b);
+		//data.SysMemSlicePitch = sizeof(buffer);
+
+		//auto result = device_m->CreateTexture2D(&texture_description, &data, &texture);
+		//if (IS_ERROR(result)) throw error{ result, "Failed to create texture" };
+
+		D3D11_TEXTURE2D_DESC texture_description;
+		texture_description.MipLevels = 1;
+		texture_description.ArraySize = 1;
+		texture_description.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+		texture_description.SampleDesc.Count = 1;
+		texture_description.SampleDesc.Quality = 0;
+		texture_description.Usage = D3D11_USAGE_DEFAULT;
+		texture_description.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+		texture_description.CPUAccessFlags = 0;
+		texture_description.MiscFlags = 0;
+		texture_description.Width = size.cx;
+		texture_description.Height = size.cy;
+
+		D3D11_SUBRESOURCE_DATA resource_data;
+		resource_data.pSysMem = pointer.shape_data.data();
+		resource_data.SysMemPitch = pointer.shape_info.Pitch;
+		resource_data.SysMemSlicePitch = 0;
+
+		auto result = device_m->CreateTexture2D(
+			&texture_description, 
+			&resource_data, 
+			&texture);
+
+		D3D11_SHADER_RESOURCE_VIEW_DESC shader_resource_description;
+		shader_resource_description.Format = texture_description.Format;
+		shader_resource_description.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+		shader_resource_description.Texture2D.MostDetailedMip = texture_description.MipLevels - 1;
+		shader_resource_description.Texture2D.MipLevels = texture_description.MipLevels;
+
+		result = device_m->CreateShaderResourceView(
+			texture.Get(), 
+			&shader_resource_description, 
+			&shader_resource);
+	}
+
+
+	uint32_t stride = sizeof(Vertex), offset = 0;
+	deviceContext_m->IASetVertexBuffers(0, 1, vertex_buffer.GetAddressOf(), &stride, &offset);
+	float blend_factor[] = { 0.f, 0.f, 0.f, 0.f };
+	deviceContext_m->OMSetBlendState(blendState_m.Get(), blend_factor, 0xFFFFFFFF);
+	deviceContext_m->OMSetRenderTargets(1, renderTarget_m.GetAddressOf(), nullptr);
+	deviceContext_m->VSSetShader(vertexShader_m.Get(), nullptr, 0);
+	deviceContext_m->PSSetShader(pixelShader_m.Get(), nullptr, 0);
+	deviceContext_m->PSSetShaderResources(0, 1, shader_resource.GetAddressOf());
+	deviceContext_m->PSSetSamplers(0, 1, samplerState_m.GetAddressOf());
+
+	deviceContext_m->Draw(vertice_count, 0);
 }
 
 void window_renderer::swap() {

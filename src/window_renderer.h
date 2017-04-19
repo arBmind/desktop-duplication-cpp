@@ -1,6 +1,8 @@
 #pragma once
 #include "base_renderer.h"
 
+struct pointer_data;
+
 struct window_renderer : base_renderer {
 	struct init_args : base_renderer::init_args {
 		HWND windowHandle;
@@ -13,11 +15,12 @@ struct window_renderer : base_renderer {
 	float zoom() const { return zoom_m; }
 	POINT offset() const { return { (long)offset_m.x, (long)offset_m.y }; }
 
-	void resize(SIZE size);
+	bool resize(SIZE size);
 	void setZoom(float zoom);
 	void moveOffset(POINT delta);
 
 	void render();
+	void renderMouse(const pointer_data& pointer);
 	void swap();
 
 private:
@@ -34,7 +37,7 @@ private:
 	vec2f offset_m = { 0, 0 };
 	SIZE size_m;
 
-	bool resetBuffers_m = false;
+	bool pendingResizeBuffers_m = false;
 	HWND windowHandle_m;
 
 	ComPtr<ID3D11Texture2D> texture_m;

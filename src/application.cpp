@@ -3,6 +3,7 @@
 #include "capture_thread.h"
 #include "renderer.h"
 #include "frame_updater.h"
+#include "pointer_updater.h"
 #include "window_renderer.h"
 
 #include "meta/tuple.h"
@@ -54,11 +55,12 @@ struct internal: capture_thread::api{
 		case WM_CLOSE:
 			PostQuitMessage(0);
 			break;
+
 		case WM_LBUTTONDBLCLK:
 			self->toggleMaximized();
 			break;
 		case WM_SIZE:
-			self->handleSizeChanged();
+			self->handleSizeChanged(SIZE{ LOWORD(lParam), HIWORD(lParam) }, (uint32_t)wParam);
 			break;
 
 		// Zoom
@@ -110,12 +112,25 @@ struct internal: capture_thread::api{
 		return 0;
 	}
 
-	void handleSizeChanged() {
+	void handleSizeChanged(const SIZE& size, const uint32_t flags) {
 		if (!duplicationStarted_m) return;
-		RECT rect;
-		GetClientRect(windowHandle_m, &rect);
-		windowRenderer_m.resize(rectSize(rect));
-		doRender_m = true;
+		setMaximized((flags & SIZE_MAXIMIZED) != 0);
+		auto changed = windowRenderer_m.resize(size);
+		if (changed) doRender_m = true;
+	}
+
+	bool maximized_m = false;
+	void setMaximized(bool maximized) {
+		if (maximized == maximized_m) return;
+		maximized_m = maximized;
+		bool success = true;
+		if (maximized_m) {
+			success = PowerSetRequest(powerHandle_m, PowerRequestDisplayRequired);
+		}
+		else {
+			success = PowerClearRequest(powerHandle_m, PowerRequestDisplayRequired);
+		}
+		if (!success) throw Unexpected{ "Failed to cast power request" };
 	}
 
 	void changeZoom(float zoomDelta) {
@@ -219,6 +234,8 @@ struct internal: capture_thread::api{
 			registerWindowClass(config_m.instanceHandle);
 			threadHandle_m = GetCurrentThreadHandle();
 			LATER(CloseHandle(threadHandle_m));
+			powerHandle_m = createPowerRequest();
+			LATER(setMaximized(false); CloseHandle(powerHandle_m));
 
 			windowHandle_m = createMainWindow(config_m.instanceHandle, config_m.showCommand);
 			initCaptureThreads();
@@ -230,6 +247,14 @@ struct internal: capture_thread::api{
 			OutputDebugStringA("\n");
 			return -1;
 		}
+	}
+
+	HANDLE createPowerRequest() {
+		REASON_CONTEXT reason;
+		reason.Version = POWER_REQUEST_CONTEXT_VERSION;
+		reason.Flags = POWER_REQUEST_CONTEXT_SIMPLE_STRING;
+		reason.Reason.SimpleReasonString = L"Desktop Duplication Tool";
+		return PowerCreateRequest(&reason);
 	}
 
 	int mainLoop() {
@@ -337,6 +362,7 @@ struct internal: capture_thread::api{
 		ShowWindowBorder(windowHandle_m, !IsWindowMaximized(windowHandle_m));
 		try {
 			windowRenderer_m.render();
+			windowRenderer_m.renderMouse(pointerUpdater_m.data());
 			windowRenderer_m.swap();
 			auto clone = updatedThreads_m;
 			updatedThreads_m.clear();
@@ -390,6 +416,7 @@ struct internal: capture_thread::api{
 	}
 	void updateFrame(captured_update& frame, const frame_data& context, int thread_index) {
 		frameUpdaters_m[thread_index].update(frame, context);
+		pointerUpdater_m.update(frame, context);
 		updatedThreads_m.push_back(thread_index);
 		doRender_m = true;
 	}
@@ -397,6 +424,7 @@ struct internal: capture_thread::api{
 private:
 	config config_m;
 	HWND windowHandle_m;
+	HANDLE powerHandle_m;
 public:
 	HANDLE threadHandle_m;
 private:
@@ -411,6 +439,7 @@ private:
 	window_renderer windowRenderer_m;
 	ComPtr<ID3D11Texture2D> target_m;
 	std::vector<frame_updater> frameUpdaters_m;
+	pointer_updater pointerUpdater_m;
 
 	using capture_thread_ptr = std::unique_ptr<capture_thread>;
 

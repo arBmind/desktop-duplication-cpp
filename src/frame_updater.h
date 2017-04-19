@@ -3,17 +3,13 @@
 #include "base_renderer.h"
 
 #include "captured_update.h"
+#include "frame_context.h"
 
 #include <meta/comptr.h>
 #include <array>
 
 struct RenderFailure {
 	RenderFailure(HRESULT res, const char* text) {}
-};
-
-struct frame_data {
-	POINT offset;
-	DXGI_OUTPUT_DESC output_desc;
 };
 
 struct frame_updater : base_renderer {
@@ -43,6 +39,5 @@ private:
 	ComPtr<ID3D11RenderTargetView> renderTarget_m;
 
 	ComPtr<ID3D11Texture2D> moveTmp_m;
-
 	std::vector<QuadVertices> dirtyQuads_m;
 };
