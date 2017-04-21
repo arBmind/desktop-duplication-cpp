@@ -41,33 +41,22 @@ namespace {
 	}
 }
 
-frame_updater::frame_updater(init_args && args) {
-	init(std::move(args));
-}
+frame_updater::frame_updater(init_args && args)
+	: dx_m(std::move(args)) {}
 
-void frame_updater::update(const captured_update &data, const frame_data &context) {
+void frame_updater::update(const captured_update &data, const frame_context &context) {
 	performMoves(data.moved(), context);
 	updateDirty(data, data.dirty(), context);
 }
 
-void frame_updater::init(init_args && args) {
-	base_renderer::init(std::move(args));
-	prepare(args.targetHandle);
-}
-
-void frame_updater::prepare(HANDLE targetHandle) {
-	target_m = renderer::getTextureFromHandle(device_m, targetHandle);
-	renderTarget_m = renderer::renderToTexture(device_m, target_m);
-}
-
-void frame_updater::performMoves(const move_view & moves, const frame_data &context) {
+void frame_updater::performMoves(const move_view & moves, const frame_context &context) {
 	if (moves.empty()) return;
 
 	auto desktop_size = rectSize(context.output_desc.DesktopCoordinates);
 
-	if (!moveTmp_m) {
+	if (!dx_m.moveTmp_m) {
 		D3D11_TEXTURE2D_DESC target_description;
-		target_m->GetDesc(&target_description);
+		dx_m.target_m->GetDesc(&target_description);
 
 		D3D11_TEXTURE2D_DESC move_description;
 		move_description = target_description;
@@ -75,7 +64,7 @@ void frame_updater::performMoves(const move_view & moves, const frame_data &cont
 		move_description.Height = desktop_size.cy;
 		move_description.BindFlags = D3D11_BIND_RENDER_TARGET;
 		move_description.MiscFlags = 0;
-		auto result = device_m->CreateTexture2D(&move_description, nullptr, &moveTmp_m);
+		auto result = dx_m.device()->CreateTexture2D(&move_description, nullptr, &dx_m.moveTmp_m);
 		if (IS_ERROR(result)) throw RenderFailure(result, "Failed to create move temporary texture");
 	}
 
@@ -95,54 +84,34 @@ void frame_updater::performMoves(const move_view & moves, const frame_data &cont
 		box.bottom = source.bottom + target_y;
 		box.back = 1;
 
-		deviceContext_m->CopySubresourceRegion(moveTmp_m.Get(), 0, source.left, source.top, 0, target_m.Get(), 0, &box);
+		dx_m.deviceContext()->CopySubresourceRegion(
+			dx_m.moveTmp_m.Get(), 0, source.left, source.top, 0, 
+			dx_m.target_m.Get(), 0, &box);
 
 		box.left = source.left;
 		box.top = source.top;
 		box.right = source.right;
 		box.bottom = source.bottom;
 
-		deviceContext_m->CopySubresourceRegion(target_m.Get(), 0, dest.left + target_x, dest.top + target_y, 0, moveTmp_m.Get(), 0, &box);
+		dx_m.deviceContext()->CopySubresourceRegion(
+			dx_m.target_m.Get(), 0, dest.left + target_x, dest.top + target_y, 0, 
+			dx_m.moveTmp_m.Get(), 0, &box);
 	}
 }
 
-void frame_updater::updateDirty(const captured_update &data, const dirty_view& dirts, const frame_data& context) {
+void frame_updater::updateDirty(const captured_update &data, const dirty_view& dirts, const frame_context& context) {
 	if (dirts.empty()) return;
 
 	auto* desktop = data.desktop_image.Get();
 
-	//ComPtr<ID3D11RenderTargetView> renderTarget;
-	//auto result = desktop_device->CreateRenderTargetView(target_m.Get(), nullptr, &renderTarget);
-	//if (IS_ERROR(result)) throw RenderFailure(result, "Failed to create render target from target texture");
-
-	//using Color = float[4];
-	//auto color = Color{ 1.f,0,0,0 };
-	//deviceContext_m->ClearRenderTargetView(renderTarget_m.Get(), color);
-	//return;
-
-	deviceContext_m->OMSetRenderTargets(1, renderTarget_m.GetAddressOf(), nullptr);
-	deviceContext_m->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	ComPtr<ID3D11ShaderResourceView> shader_resource = dx_m.createShaderTexture(desktop);
+	dx_m.deviceContext()->PSSetShaderResources(0, 1, shader_resource.GetAddressOf());
 
 	D3D11_TEXTURE2D_DESC target_description;
-	target_m->GetDesc(&target_description);
+	dx_m.target_m->GetDesc(&target_description);
 
 	D3D11_TEXTURE2D_DESC desktop_description;
 	desktop->GetDesc(&desktop_description);
-
-	D3D11_SHADER_RESOURCE_VIEW_DESC shader_resource_description;
-	shader_resource_description.Format = desktop_description.Format;
-	shader_resource_description.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-	shader_resource_description.Texture2D.MostDetailedMip = desktop_description.MipLevels - 1;
-	shader_resource_description.Texture2D.MipLevels = desktop_description.MipLevels;
-
-	ComPtr<ID3D11ShaderResourceView> shader_resource;
-	auto result = device_m->CreateShaderResourceView(
-		desktop, 
-		&shader_resource_description, 
-		&shader_resource);
-	if (IS_ERROR(result)) throw RenderFailure(result, "Failed to create desktop texture resource");
-
-	deviceContext_m->PSSetShaderResources(0, 1, shader_resource.GetAddressOf());
 
 	auto target_x = context.output_desc.DesktopCoordinates.left - context.offset.x;
 	auto target_y = context.output_desc.DesktopCoordinates.top - context.offset.y;
@@ -153,10 +122,9 @@ void frame_updater::updateDirty(const captured_update &data, const dirty_view& d
 	auto center_y = (long)target_description.Height / 2;
 
 	auto make_vertex = [&](int x, int y) {
-		return Vertex{ 
+		return vertex{ 
 			(x + target_x - center_x) / (float)center_x,
 			-1 * (y + target_y - center_y) / (float)center_y, 
-			0, 
 			x / static_cast<float>(desktop_description.Width),
 			y / static_cast<float>(desktop_description.Height)
 		};
@@ -166,7 +134,7 @@ void frame_updater::updateDirty(const captured_update &data, const dirty_view& d
 	dirtyQuads_m.clear();
 	for (const auto& dirt : dirts) {
 		RECT rotated = rotate(dirt, rotation, desktop_size);
-		QuadVertices vertices;
+		quad_vertices vertices;
 
 		vertices[0] = make_vertex(rotated.left, rotated.bottom);
 		vertices[1] = make_vertex(rotated.left, rotated.top);
@@ -181,7 +149,7 @@ void frame_updater::updateDirty(const captured_update &data, const dirty_view& d
 	D3D11_BUFFER_DESC buffer_description;
 	RtlZeroMemory(&buffer_description, sizeof(buffer_description));
 	buffer_description.Usage = D3D11_USAGE_DEFAULT;
-	buffer_description.ByteWidth = static_cast<uint32_t>(sizeof(QuadVertices) * dirts.size());
+	buffer_description.ByteWidth = static_cast<uint32_t>(sizeof(quad_vertices) * dirts.size());
 	buffer_description.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	buffer_description.CPUAccessFlags = 0;
 
@@ -190,12 +158,12 @@ void frame_updater::updateDirty(const captured_update &data, const dirty_view& d
 	init_data.pSysMem = dirtyQuads_m.data();
 
 	ComPtr<ID3D11Buffer> vertex_buffer;
-	result = device_m->CreateBuffer(&buffer_description, &init_data, &vertex_buffer);
+	auto result = dx_m.device()->CreateBuffer(&buffer_description, &init_data, &vertex_buffer);
 	if (IS_ERROR(result)) throw RenderFailure(result, "Failed to create dirty vertex buffer");
 
-	uint32_t stride = sizeof(Vertex);
+	uint32_t stride = sizeof(vertex);
 	uint32_t offset = 0;
-	deviceContext_m->IASetVertexBuffers(0, 1, vertex_buffer.GetAddressOf(), &stride, &offset);
+	dx_m.deviceContext()->IASetVertexBuffers(0, 1, vertex_buffer.GetAddressOf(), &stride, &offset);
 
 	D3D11_VIEWPORT view_port;
 	view_port.Width = static_cast<FLOAT>(target_description.Width);
@@ -204,9 +172,28 @@ void frame_updater::updateDirty(const captured_update &data, const dirty_view& d
 	view_port.MaxDepth = 1.0f;
 	view_port.TopLeftX = 0.0f;
 	view_port.TopLeftY = 0.0f;
-	deviceContext_m->RSSetViewports(1, &view_port);
+	dx_m.deviceContext()->RSSetViewports(1, &view_port);
 
-	deviceContext_m->Draw(static_cast<uint32_t>(QuadVertices().size() * dirts.size()), 0);
+	dx_m.deviceContext()->Draw(static_cast<uint32_t>(6 * dirts.size()), 0);
 
-	deviceContext_m->OMSetRenderTargets(0, nullptr, nullptr);
+	//dx_m.activateNoRenderTarget();
+	ID3D11ShaderResourceView* noResource = nullptr;
+	dx_m.deviceContext()->PSSetShaderResources(0, 1, &noResource);
+}
+
+frame_updater::resources::resources(frame_updater::init_args && args)
+	: base_renderer(std::move(args)) {
+	prepare(args.targetHandle);
+
+	activateRenderTarget();
+	activateTriangleList();
+
+	activateVertexShader();
+	activatePlainPixelShader();
+	activateDiscreteSampler();
+}
+
+void frame_updater::resources::prepare(HANDLE targetHandle) {
+	target_m = renderer::getTextureFromHandle(device(), targetHandle);
+	renderTarget_m = renderer::renderToTexture(device(), target_m);
 }

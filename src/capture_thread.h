@@ -26,7 +26,7 @@ struct capture_thread {
 	struct api {
 		// callbacks are implemented in application.cpp
 		void setError(std::exception_ptr error);
-		void setFrame(captured_update&& frame, const frame_data& context, int thread_index);
+		void setFrame(captured_update&& frame, const frame_context& context, int thread_index);
 	};
 	struct start_args {
 		ComPtr<ID3D11Device> device; // unique capture device
@@ -57,7 +57,7 @@ private:
 	int display_m;
 	int index_m;
 	api* api_m;
-	frame_data context_m; 
+	frame_context context_m; 
 	ComPtr<ID3D11Device> device_m;
 	HANDLE threadHandle_m;
 	bool keepRunning_m = true;

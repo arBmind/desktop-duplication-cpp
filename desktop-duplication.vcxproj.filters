@@ -1,8 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <FxCompile Include="src\PixelShader.hlsl" />
     <FxCompile Include="src\VertexShader.hlsl" />
+    <FxCompile Include="src\MaskedPixelShader.hlsl" />
+    <FxCompile Include="src\PlainPixelShader.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\application.cpp" />
@@ -55,10 +56,16 @@
     </ClInclude>
     <ClInclude Include="src\pointer_updater.h" />
     <ClInclude Include="src\frame_context.h" />
+    <ClInclude Include="src\meta\optional.h">
+      <Filter>meta</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="meta">
       <UniqueIdentifier>{c1306954-4001-4709-97a0-8b2ff7c09077}</UniqueIdentifier>
     </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Manifest Include="src\DeclareDPIAware.manifest" />
   </ItemGroup>
 </Project>

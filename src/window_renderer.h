@@ -1,13 +1,17 @@
 #pragma once
 #include "base_renderer.h"
 
+#include "meta/optional.h"
+
 struct pointer_data;
 
-struct window_renderer : base_renderer {
+struct window_renderer {
 	struct init_args : base_renderer::init_args {
 		HWND windowHandle;
 		ComPtr<ID3D11Texture2D> texture; // texture is rendered as quad
 	};
+	using vertex = base_renderer::vertex;
+	struct vec2f { float x, y; };
 
 	void init(init_args&& args);
 	void reset();
@@ -18,21 +22,20 @@ struct window_renderer : base_renderer {
 	bool resize(SIZE size);
 	void setZoom(float zoom);
 	void moveOffset(POINT delta);
+	void moveToBorder(int x, int y);
+	void moveTo(vec2f offset);
 
 	void render();
-	void renderMouse(const pointer_data& pointer);
+	void renderPointer(const pointer_data& pointer);
 	void swap();
 
 private:
-	void createSwapChain();
-	void makeRenderTarget();
-
 	void resizeSwapBuffer();
 	void setViewPort();
+	void updatePointerShape(const pointer_data &pointer);
+	void activatePointerVertices(const pointer_data &pointer);
 
 private:
-	struct vec2f { float x, y; };
-
 	float zoom_m = 1.f;
 	vec2f offset_m = { 0, 0 };
 	SIZE size_m;
@@ -40,7 +43,57 @@ private:
 	bool pendingResizeBuffers_m = false;
 	HWND windowHandle_m;
 
-	ComPtr<ID3D11Texture2D> texture_m;
-	ComPtr<IDXGISwapChain1> swapChain_m;
-	ComPtr<ID3D11RenderTargetView> renderTarget_m;
+	uint64_t lastPointerShapeUpdate_m = 0;
+
+	struct resources : base_renderer {
+		resources(window_renderer::init_args&& args);
+
+	private:
+		void createBackgroundTextureShaderResource();
+		void createBackgroundVertexBuffer();
+		void createSwapChain(HWND windowHandle);
+		void createMaskedPixelShader();
+		void createLinearSamplerState();
+
+	public:
+		void createRenderTarget();
+
+		void clearRenderTarget(const color& c) {
+			deviceContext()->ClearRenderTargetView(renderTarget_m.Get(), c);
+		}
+		void activateRenderTarget() {
+			deviceContext()->OMSetRenderTargets(1, renderTarget_m.GetAddressOf(), nullptr);
+		}
+
+		void activateBackgroundTexture() {
+			deviceContext()->PSSetShaderResources(0, 1, backgroundTextureShaderResource_m.GetAddressOf());
+		}
+		void activateBackgroundVertexBuffer() {
+			uint32_t stride = sizeof(vertex), offset = 0;
+			deviceContext()->IASetVertexBuffers(0, 1, backgroundVertexBuffer_m.GetAddressOf(), &stride, &offset);
+		}
+
+		void activateMaskedPixelShader() const {
+			deviceContext()->PSSetShader(maskedPixelShader_m.Get(), nullptr, 0);
+		}
+		void activatePointerTexture(int index = 0) {
+			deviceContext()->PSSetShaderResources(index, 1, pointerTextureShaderResource_m.GetAddressOf());
+		}
+		void activateLinearSampler(int index = 0) const {
+			deviceContext()->PSSetSamplers(index, 1, linearSamplerState_m.GetAddressOf());
+		}
+
+		ComPtr<ID3D11Texture2D> backgroundTexture_m;
+		ComPtr<ID3D11ShaderResourceView> backgroundTextureShaderResource_m;
+		ComPtr<ID3D11Buffer> backgroundVertexBuffer_m;
+		ComPtr<IDXGISwapChain1> swapChain_m;
+		ComPtr<ID3D11RenderTargetView> renderTarget_m;
+		ComPtr<ID3D11PixelShader> maskedPixelShader_m;
+		ComPtr<ID3D11SamplerState> linearSamplerState_m;
+
+		ComPtr<ID3D11Texture2D> pointerTexture_m;
+		ComPtr<ID3D11ShaderResourceView> pointerTextureShaderResource_m;
+	};
+
+	meta::optional<resources> dx_m;
 };

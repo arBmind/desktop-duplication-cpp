@@ -64,6 +64,7 @@ namespace renderer {
 		swap_chain_desription.SampleDesc.Quality = 0;
 		swap_chain_desription.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 		swap_chain_desription.BufferCount = 2;
+		swap_chain_desription.Scaling = DXGI_SCALING_NONE;
 		swap_chain_desription.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
 
 		ComPtr<IDXGISwapChain1> swap_chain;
@@ -134,14 +135,14 @@ namespace renderer {
 		RtlZeroMemory(&description, sizeof(D3D11_TEXTURE2D_DESC));
 		description.Width = size.cx;
 		description.Height = size.cy;
-		description.MipLevels = 1;
+		description.MipLevels = 0;
 		description.ArraySize = 1;
 		description.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
 		description.SampleDesc.Count = 1;
 		description.Usage = D3D11_USAGE_DEFAULT;
 		description.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 		description.CPUAccessFlags = 0;
-		description.MiscFlags = D3D11_RESOURCE_MISC_SHARED;
+		description.MiscFlags = D3D11_RESOURCE_MISC_SHARED | D3D11_RESOURCE_MISC_GENERATE_MIPS;
 
 		ComPtr<ID3D11Texture2D> texture;
 		auto result = device->CreateTexture2D(&description, nullptr, &texture);

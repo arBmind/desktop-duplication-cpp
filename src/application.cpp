@@ -32,9 +32,16 @@ namespace {
 
 		SetWindowLong(windowHandle, GWL_STYLE, style);
 	}
+	uint32_t GetModifierKeys() {
+		auto output = 0u;
+		if ((GetKeyState(VK_SHIFT) & 0x8000) != 0) output |= MK_SHIFT;
+		if ((GetKeyState(VK_CONTROL) & 0x8000) != 0) output |= MK_CONTROL;
+		if ((GetKeyState(VK_MENU) & 0x8000) != 0) output |= MK_ALT;
+		return output;
+	}
 }
 
-struct internal: capture_thread::api{
+struct internal : capture_thread::api {
 	using config = application::config;
 
 	internal(config&& cfg) : config_m(std::move(cfg)) {}
@@ -106,6 +113,47 @@ struct internal: capture_thread::api{
 			}
 			break;
 
+		// Keyboard
+		case WM_KEYDOWN: {
+			auto mk = GetModifierKeys();
+			switch (wParam) {
+			case VK_UP:				
+				if (mk == MK_SHIFT) {
+					self->moveTextureTo(0, -1);
+				}
+				break;
+			case VK_DOWN:
+				if (mk == MK_SHIFT) {
+					self->moveTextureTo(0, +1);
+				}
+				break;
+			case VK_LEFT:
+				if (mk == MK_SHIFT) {
+					self->moveTextureTo(-1, 0);
+				}
+				break;
+			case VK_RIGHT:
+				if (mk == MK_SHIFT) {
+					self->moveTextureTo(+1, 0);
+				}
+				break;
+			case 0x30: // 0
+				if (mk == MK_CONTROL) {
+					self->setZoom(1.f);
+				}
+			}
+			break;
+		}
+		// DPI Aware
+		case WM_DPICHANGED: {
+			auto* new_rect = (LPRECT)lParam;
+			auto new_size = rectSize(*new_rect);
+			MoveWindow(window,
+				new_rect->left, new_rect->top,
+				new_size.cx, new_size.cy,
+				true);
+			break;
+		}
 		default:
 			return DefWindowProc(window, message, wParam, lParam);
 		}
@@ -134,8 +182,10 @@ struct internal: capture_thread::api{
 	}
 
 	void changeZoom(float zoomDelta) {
+		setZoom(windowRenderer_m.zoom() + zoomDelta);
+	}
+	void setZoom(float zoom) {
 		if (!duplicationStarted_m) return;
-		auto zoom = windowRenderer_m.zoom() + zoomDelta;
 		windowRenderer_m.setZoom(std::max(zoom, 0.05f));
 		doRender_m = true;
 	}
@@ -146,6 +196,10 @@ struct internal: capture_thread::api{
 
 	void moveTexture(POINT delta) {
 		windowRenderer_m.moveOffset(delta);
+		doRender_m = true;
+	}
+	void moveTextureTo(int x, int y) {
+		windowRenderer_m.moveToBorder(x, y);
 		doRender_m = true;
 	}
 
@@ -217,7 +271,7 @@ struct internal: capture_thread::api{
 		std::get<internal*>(*args)->updateError(std::get<1>(*args));
 	}
 	static void WINAPI setFrameAPC(ULONG_PTR parameter) {
-		auto args = unique_tuple_ptr<internal*, captured_update, std::reference_wrapper<frame_data>, int>(parameter);
+		auto args = unique_tuple_ptr<internal*, captured_update, std::reference_wrapper<frame_context>, int>(parameter);
 		std::get<internal*>(*args)->updateFrame(std::get<1>(*args), std::get<2>(*args), std::get<3>(*args));
 	}
 
@@ -362,7 +416,7 @@ struct internal: capture_thread::api{
 		ShowWindowBorder(windowHandle_m, !IsWindowMaximized(windowHandle_m));
 		try {
 			windowRenderer_m.render();
-			windowRenderer_m.renderMouse(pointerUpdater_m.data());
+			windowRenderer_m.renderPointer(pointerUpdater_m.data());
 			windowRenderer_m.swap();
 			auto clone = updatedThreads_m;
 			updatedThreads_m.clear();
@@ -414,7 +468,7 @@ struct internal: capture_thread::api{
 		error_m = exception;
 		hasError_m = true;
 	}
-	void updateFrame(captured_update& frame, const frame_data& context, int thread_index) {
+	void updateFrame(captured_update& frame, const frame_context& context, int thread_index) {
 		frameUpdaters_m[thread_index].update(frame, context);
 		pointerUpdater_m.update(frame, context);
 		updatedThreads_m.push_back(thread_index);
@@ -467,7 +521,7 @@ void capture_thread::api::setError(std::exception_ptr error) {
 	if (!success) throw Unexpected{ "api::setError failed to queue APC" };
 }
 
-void capture_thread::api::setFrame(captured_update&& frame, const frame_data& context, int thread_index) {
+void capture_thread::api::setFrame(captured_update&& frame, const frame_context& context, int thread_index) {
 	auto self = reinterpret_cast<internal*>(this);
 	auto parameter = make_tuple_ptr(self, (captured_update&&)frame, std::ref(context), thread_index);
 	auto success = QueueUserAPC(internal::setFrameAPC, self->threadHandle_m, (ULONG_PTR)parameter);
