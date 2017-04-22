@@ -117,31 +117,36 @@ struct internal : capture_thread::api {
 		case WM_KEYDOWN: {
 			auto mk = GetModifierKeys();
 			switch (wParam) {
-			case VK_UP:				
-				if (mk == MK_SHIFT) {
-					self->moveTextureTo(0, -1);
-				}
+			case VK_UP:
+				if (mk == MK_SHIFT) self->moveTextureTo(0, -1);
 				break;
 			case VK_DOWN:
-				if (mk == MK_SHIFT) {
-					self->moveTextureTo(0, +1);
-				}
+				if (mk == MK_SHIFT) self->moveTextureTo(0, +1);
 				break;
 			case VK_LEFT:
-				if (mk == MK_SHIFT) {
-					self->moveTextureTo(-1, 0);
-				}
+				if (mk == MK_SHIFT) self->moveTextureTo(-1, 0);
 				break;
 			case VK_RIGHT:
-				if (mk == MK_SHIFT) {
-					self->moveTextureTo(+1, 0);
-				}
+				if (mk == MK_SHIFT) self->moveTextureTo(+1, 0);
 				break;
-			case 0x30: // 0
-				if (mk == MK_CONTROL) {
-					self->setZoom(1.f);
-				}
+			default: {
+				auto ch = MapVirtualKey(uint32_t(wParam), MAPVK_VK_TO_CHAR);
+				switch (ch) {
+				case '0':
+					if (mk == MK_CONTROL) self->setZoom(1.f);
+					else if (mk & MK_CONTROL) self->setZoom(1.f);
+					break;
+				case '+':
+					if (mk == MK_CONTROL) self->changeZoom(0.01f);
+					else if (mk & MK_CONTROL) self->changeZoom(0.001f);
+					break;
+				case '-':
+					if (mk == MK_CONTROL) self->changeZoom(-0.01f);
+					else if (mk & MK_CONTROL) self->changeZoom(-0.001f);
+					break;
+				} // switch
 			}
+			} // switch
 			break;
 		}
 		// DPI Aware
