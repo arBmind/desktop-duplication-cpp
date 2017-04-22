@@ -21,8 +21,10 @@ base_renderer::base_renderer(init_args && args)
 
 base_renderer::~base_renderer() {
     // ensure device is clean
-	deviceContext_m->ClearState();
-	deviceContext_m->Flush();
+	if (deviceContext_m) {
+		deviceContext_m->ClearState();
+		deviceContext_m->Flush();
+	}
 }
 
 ComPtr<ID3D11ShaderResourceView> base_renderer::createShaderTexture(ID3D11Texture2D * texture) const {

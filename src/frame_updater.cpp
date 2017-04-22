@@ -62,6 +62,7 @@ void frame_updater::performMoves(const move_view & moves, const frame_context &c
 		move_description = target_description;
 		move_description.Width = desktop_size.cx;
 		move_description.Height = desktop_size.cy;
+		move_description.MipLevels = 1;
 		move_description.BindFlags = D3D11_BIND_RENDER_TARGET;
 		move_description.MiscFlags = 0;
 		auto result = dx_m.device()->CreateTexture2D(&move_description, nullptr, &dx_m.moveTmp_m);
