@@ -19,12 +19,12 @@ Interactions:
 * You can resize the window as you like. This changes the portion of the screen that is visible.
 * Double Left Mouseclick maximizes the window.
 * Maximized window looses the window frame. Ideal for presentations.
-* pass:[<kbd>Ctrl</kbd>] + [Mousewheel] allows you to zoom
-* pass:[<kbd>Ctrl</kbd><kbd>Shift</kbd>] + [Mousewheel] zooms in smaller steps
+* pass:[<kbd>Ctrl</kbd>] + pass:[<kbd>Mousewheel ↕</kbd>] allows you to zoom
+* pass:[<kbd>Ctrl</kbd><kbd>Shift</kbd>] + pass:[<kbd>Mousewheel ↕</kbd>] zooms in smaller steps
 * pass:[<kbd>Ctrl</kbd> + <kbd>0</kbd>] reset zoom to 1:1
-* pass:[<kbd>Shift</kbd>] + [Left Mouse Button Dragging] allows you to move the visible portion
-* [Double Right Mouseclick] + [Focus other Window] will position and resize the other window into the mirrored area. Not all windows will like this.
-* pass:[<kbd>Shift</kbd> + <kbd>?</kbd>/<kbd>?</kbd>/<kbd>?</kbd>/<kbd>?</kbd>] aligns the mirrored image to the border
+* pass:[<kbd>Shift</kbd>] + pass:[<kbd>Left Mouse Button</kbd>] + pass:[<kbd>Dragging ⇔⇕</kbd>] allows you to move the visible portion
+* pass:[2×<kbd>Right Mouse Button</kbd>] + [Focus other Window] will position and resize the other window into the mirrored area. Not all windows will like this.
+* pass:[<kbd>Shift</kbd> + <kbd>←</kbd>/<kbd>↑</kbd>/<kbd>→</kbd>/<kbd>↓</kbd>] aligns the mirrored image to the border
 
 The tool is optimized to be very response and save CPU time.
 
