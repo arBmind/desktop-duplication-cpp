@@ -256,6 +256,10 @@
   <ItemGroup>
     <Manifest Include="src\DeclareDPIAware.manifest" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="LICENSE" />
+    <None Include="README.adoc" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

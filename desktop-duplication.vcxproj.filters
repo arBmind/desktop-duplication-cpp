@@ -1,71 +1,122 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <FxCompile Include="src\VertexShader.hlsl" />
-    <FxCompile Include="src\MaskedPixelShader.hlsl" />
-    <FxCompile Include="src\PlainPixelShader.hlsl" />
+    <FxCompile Include="src\MaskedPixelShader.hlsl">
+      <Filter>src</Filter>
+    </FxCompile>
+    <FxCompile Include="src\PlainPixelShader.hlsl">
+      <Filter>src</Filter>
+    </FxCompile>
+    <FxCompile Include="src\VertexShader.hlsl">
+      <Filter>src</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\application.cpp" />
-    <ClCompile Include="src\capture_thread.cpp" />
-    <ClCompile Include="src\frame_updater.cpp" />
-    <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\renderer.cpp" />
-    <ClCompile Include="src\window_renderer.cpp" />
-    <ClCompile Include="src\base_renderer.cpp" />
-    <ClCompile Include="src\pointer_updater.cpp" />
+    <ClCompile Include="src\application.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\base_renderer.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\capture_thread.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\frame_updater.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pointer_updater.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\renderer.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\window_renderer.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\application.h" />
-    <ClInclude Include="src\captured_update.h" />
-    <ClInclude Include="src\capture_thread.h" />
-    <ClInclude Include="src\frame_updater.h" />
-    <ClInclude Include="src\renderer.h" />
-    <ClInclude Include="src\stable.h" />
-    <ClInclude Include="src\window_renderer.h" />
-    <ClInclude Include="src\base_renderer.h" />
     <ClInclude Include="src\meta\array.h">
-      <Filter>meta</Filter>
+      <Filter>src\meta</Filter>
     </ClInclude>
     <ClInclude Include="src\meta\array_view.h">
-      <Filter>meta</Filter>
+      <Filter>src\meta</Filter>
     </ClInclude>
     <ClInclude Include="src\meta\bits.h">
-      <Filter>meta</Filter>
+      <Filter>src\meta</Filter>
     </ClInclude>
     <ClInclude Include="src\meta\comptr.h">
-      <Filter>meta</Filter>
+      <Filter>src\meta</Filter>
     </ClInclude>
     <ClInclude Include="src\meta\flags.h">
-      <Filter>meta</Filter>
+      <Filter>src\meta</Filter>
     </ClInclude>
     <ClInclude Include="src\meta\result.h">
-      <Filter>meta</Filter>
+      <Filter>src\meta</Filter>
     </ClInclude>
     <ClInclude Include="src\meta\tuple.h">
-      <Filter>meta</Filter>
+      <Filter>src\meta</Filter>
     </ClInclude>
     <ClInclude Include="src\meta\scope_guard.h">
-      <Filter>meta</Filter>
+      <Filter>src\meta</Filter>
     </ClInclude>
     <ClInclude Include="src\meta\opaque_value.h">
-      <Filter>meta</Filter>
+      <Filter>src\meta</Filter>
     </ClInclude>
     <ClInclude Include="src\meta\string_view.h">
-      <Filter>meta</Filter>
+      <Filter>src\meta</Filter>
     </ClInclude>
-    <ClInclude Include="src\pointer_updater.h" />
-    <ClInclude Include="src\frame_context.h" />
     <ClInclude Include="src\meta\optional.h">
-      <Filter>meta</Filter>
+      <Filter>src\meta</Filter>
+    </ClInclude>
+    <ClInclude Include="src\application.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\base_renderer.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\capture_thread.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\captured_update.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\frame_context.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\frame_updater.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pointer_updater.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\renderer.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\stable.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\window_renderer.h">
+      <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Filter Include="meta">
+    <Filter Include="src">
+      <UniqueIdentifier>{4f2262d7-1c05-4bc6-b3f2-6c929b10a188}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\meta">
       <UniqueIdentifier>{c1306954-4001-4709-97a0-8b2ff7c09077}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <Manifest Include="src\DeclareDPIAware.manifest" />
+    <Manifest Include="src\DeclareDPIAware.manifest">
+      <Filter>src</Filter>
+    </Manifest>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="LICENSE" />
+    <None Include="README.adoc" />
   </ItemGroup>
 </Project>
