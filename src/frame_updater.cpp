@@ -2,6 +2,9 @@
 
 #include "renderer.h"
 
+#include "captured_update.h"
+#include "frame_context.h"
+
 namespace {
 	RECT rectMoveTo(const RECT& rect, const POINT& p) {
 		auto size = rectSize(rect);
@@ -44,13 +47,14 @@ namespace {
 frame_updater::frame_updater(init_args && args)
 	: dx_m(std::move(args)) {}
 
-void frame_updater::update(const captured_update &data, const frame_context &context) {
-	performMoves(data.moved(), context);
-	updateDirty(data, data.dirty(), context);
+void frame_updater::update(const frame_update &data, const frame_context &context) {
+	performMoves(data, context);
+	updateDirty(data, context);
 }
 
-void frame_updater::performMoves(const move_view & moves, const frame_context &context) {
-	if (moves.empty()) return;
+void frame_updater::performMoves(const frame_update &data, const frame_context &context) {
+	auto moved = data.moved();
+	if (moved.empty()) return;
 
 	auto desktop_size = rectSize(context.output_desc.DesktopCoordinates);
 
@@ -73,7 +77,7 @@ void frame_updater::performMoves(const move_view & moves, const frame_context &c
 	auto target_y = context.output_desc.DesktopCoordinates.top - context.offset.y;
 	auto rotation = context.output_desc.Rotation;
 
-	for (const auto& move : moves) {
+	for (const auto& move : moved) {
 		auto source = rotate(rectMoveTo(move.DestinationRect, move.SourcePoint), rotation, desktop_size);
 		auto dest = rotate(move.DestinationRect, rotation, desktop_size);
 
@@ -100,10 +104,11 @@ void frame_updater::performMoves(const move_view & moves, const frame_context &c
 	}
 }
 
-void frame_updater::updateDirty(const captured_update &data, const dirty_view& dirts, const frame_context& context) {
+void frame_updater::updateDirty(const frame_update &data, const frame_context& context) {
+	auto dirts = data.dirty();
 	if (dirts.empty()) return;
 
-	auto* desktop = data.desktop_image.Get();
+	auto* desktop = data.image.Get();
 
 	ComPtr<ID3D11ShaderResourceView> shader_resource = dx_m.createShaderTexture(desktop);
 	dx_m.deviceContext()->PSSetShaderResources(0, 1, shader_resource.GetAddressOf());

@@ -1,20 +1,25 @@
 #include "pointer_updater.h"
 
-void pointer_updater::update(const captured_update & data, const frame_context & context) {
-	const auto &info = data.info;
-	if (info.LastMouseUpdateTime.QuadPart == 0) return;
+#include "captured_update.h"
+#include "frame_context.h"
+
+#include <utility>
+#include <algorithm>
+
+void pointer_updater::update(pointer_update& update, const frame_context& context) {
+	if (update.update_time == 0) return;
 	if (pointer_desktop_m == context.output_desc.DesktopCoordinates
-		|| (info.PointerPosition.Visible
-			&& (!pointer_m.visible || info.LastMouseUpdateTime.QuadPart > pointer_m.position_timestamp))) {
+		|| (update.position.Visible
+			&& (!pointer_m.visible || update.update_time > pointer_m.position_timestamp))) {
 		pointer_desktop_m = context.output_desc.DesktopCoordinates;
-		pointer_m.position_timestamp = info.LastMouseUpdateTime.QuadPart;
-		pointer_m.visible = info.PointerPosition.Visible;
-		pointer_m.position.x = info.PointerPosition.Position.x + context.output_desc.DesktopCoordinates.left - context.offset.x;
-		pointer_m.position.y = info.PointerPosition.Position.y + context.output_desc.DesktopCoordinates.top - context.offset.y;
+		pointer_m.position_timestamp = update.update_time;
+		pointer_m.visible = update.position.Visible;
+		pointer_m.position.x = update.position.Position.x + context.output_desc.DesktopCoordinates.left - context.offset.x;
+		pointer_m.position.y = update.position.Position.y + context.output_desc.DesktopCoordinates.top - context.offset.y;
 	}
-	if (!data.pointer_data.empty()) {
-		pointer_m.shape_timestamp = info.LastMouseUpdateTime.QuadPart;
-		pointer_m.shape_data = data.pointer_data;
-		pointer_m.shape_info = data.pointer_info;
+	if (!update.shape_buffer.empty()) {
+		pointer_m.shape_timestamp = update.update_time;
+		pointer_m.shape_data = std::move(update.shape_buffer);
+		pointer_m.shape_info = update.shape_info;
 	}
 }

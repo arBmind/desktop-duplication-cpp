@@ -1,6 +1,7 @@
 #include "application.h"
 
 #include "capture_thread.h"
+#include "captured_update.h"
 #include "renderer.h"
 #include "frame_updater.h"
 #include "pointer_updater.h"
@@ -41,7 +42,7 @@ namespace {
 	}
 }
 
-struct internal : capture_thread::api {
+struct internal : capture_thread::callbacks {
 	using config = application::config;
 
 	internal(config&& cfg) : config_m(std::move(cfg)) {}
@@ -271,19 +272,30 @@ struct internal : capture_thread::api {
 		return window_handle;
 	}
 
-	static void WINAPI setErrorAPC(ULONG_PTR parameter) {
+	static void CALLBACK setErrorAPC(ULONG_PTR parameter) {
 		auto args = unique_tuple_ptr<internal*, std::exception_ptr>(parameter);
 		std::get<internal*>(*args)->updateError(std::get<1>(*args));
 	}
-	static void WINAPI setFrameAPC(ULONG_PTR parameter) {
+	static void CALLBACK setFrameAPC(ULONG_PTR parameter) {
 		auto args = unique_tuple_ptr<internal*, captured_update, std::reference_wrapper<frame_context>, int>(parameter);
 		std::get<internal*>(*args)->updateFrame(std::get<1>(*args), std::get<2>(*args), std::get<3>(*args));
 	}
+	static void CALLBACK retryDuplicationAPC(LPVOID parameter, DWORD dwTimerLowValue, DWORD dwTimerHighValue) {
+		auto self = reinterpret_cast<internal*>(parameter);
+		self->canStartDuplication_m = true;
+	}
+	static void CALLBACK awaitFrameAPC(LPVOID parameter, DWORD dwTimerLowValue, DWORD dwTimerHighValue) {
+		auto self = reinterpret_cast<internal*>(parameter);
+		self->waitFrame_m = false;
+	}
 
 	void initCaptureThreads() {
-		auto threadIndex = 0;
 		for (auto display : config_m.displays) {
-			captureThreads_m.emplace_back(new capture_thread(display, this, threadIndex++));
+			capture_thread::init_args args;
+			args.callbacks = this;
+			args.display = display;
+			args.thread_index = captureThreads_m.size();
+			captureThreads_m.emplace_back(new capture_thread(std::move(args)));
 		}
 		threads_m.reserve(config_m.displays.size());
 	}
@@ -295,6 +307,10 @@ struct internal : capture_thread::api {
 			LATER(CloseHandle(threadHandle_m));
 			powerHandle_m = createPowerRequest();
 			LATER(setMaximized(false); CloseHandle(powerHandle_m));
+			retryTimer_m = CreateWaitableTimer(nullptr, false, TEXT("RetryTimer"));
+			LATER(CloseHandle(retryTimer_m));
+			frameTimer_m = CreateWaitableTimer(nullptr, false, TEXT("FrameTimer"));
+			LATER(CloseHandle(frameTimer_m));
 
 			windowHandle_m = createMainWindow(config_m.instanceHandle, config_m.showCommand);
 			initCaptureThreads();
@@ -319,6 +335,10 @@ struct internal : capture_thread::api {
 	int mainLoop() {
 		while (keepRunning_m) {
 			try {
+				if (!canStartDuplication_m) {
+					sleep();
+					continue;
+				}
 				startDuplication();
 			}
 			catch (Expected& e) {
@@ -354,9 +374,9 @@ struct internal : capture_thread::api {
 			auto device = device_value.device;
 			auto device_context = device_value.deviceContext;
 
-			auto dimensions = renderer::getDesktopData(device, config_m.displays);
+			auto dimensions = renderer::getDimensionData(device, config_m.displays);
 
-			target_m = renderer::createSharedTexture(device, rectSize(dimensions.desktop_rect));
+			target_m = renderer::createSharedTexture(device, rectSize(dimensions.rect));
 
 			window_renderer::init_args window_args;
 			window_args.windowHandle = windowHandle_m;
@@ -365,7 +385,7 @@ struct internal : capture_thread::api {
 			window_args.deviceContext = device_context;
 			windowRenderer_m.init(std::move(window_args));
 
-			offset_m = { dimensions.desktop_rect.left, dimensions.desktop_rect.top };
+			offset_m = { dimensions.rect.left, dimensions.rect.top };
 			auto handle = renderer::getSharedHandle(target_m);
 			for (auto& capture : captureThreads_m) {
 				startCaptureThread(*capture, offset_m, handle);
@@ -387,10 +407,10 @@ struct internal : capture_thread::api {
 		updater_args.targetHandle = targetHandle;
 		frameUpdaters_m.emplace_back(std::move(updater_args));
 
-		capture_thread::start_args args;
-		args.device = device;
-		args.offset = offset;
-		threads_m.emplace_back(capture.start(std::move(args)));
+		capture_thread::start_args thread_args;
+		thread_args.device = device;
+		thread_args.offset = offset;
+		threads_m.emplace_back(capture.start(std::move(thread_args)));
 	}
 
 	void stopDuplication() {
@@ -416,25 +436,46 @@ struct internal : capture_thread::api {
 	}
 
 	void render() {
-		if (!doRender_m) return;
+		if (waitFrame_m || !doRender_m) return;
 		doRender_m = false;
 		ShowWindowBorder(windowHandle_m, !IsWindowMaximized(windowHandle_m));
 		try {
 			windowRenderer_m.render();
 			windowRenderer_m.renderPointer(pointerUpdater_m.data());
 			windowRenderer_m.swap();
-			auto clone = updatedThreads_m;
+			for (auto index : updatedThreads_m) captureThreads_m[index]->next();
 			updatedThreads_m.clear();
-			for (auto index : clone) captureThreads_m[index]->next();
+			awaitNextFrame();
 		}
 		catch (const renderer::error& e) {
 			throw Expected{ e.message };
 		}
 	}
 
+	void awaitNextFrame() {
+		if (!waitFrame_m) {
+			waitFrame_m = true;
+			LARGE_INTEGER queue_time;
+			queue_time.QuadPart = -10 * 1000 * 10; // relative 10 ms
+			auto noPeriod = 0;
+			auto apcArgument = this;
+			auto awakeSuspend = false;
+			auto success = SetWaitableTimer(retryTimer_m, &queue_time, noPeriod, awaitFrameAPC, apcArgument, awakeSuspend);
+			if (!success) throw Unexpected{ "failed to arm frame timer" };
+		}
+	}
+
 	void awaitRetry() {
-		auto timeout = 250;
-		sleep(timeout);
+		if (canStartDuplication_m) {
+			canStartDuplication_m = false;
+			LARGE_INTEGER queue_time;
+			queue_time.QuadPart = -250 * 1000 * 10; // relative 250 ms
+			auto noPeriod = 0;
+			auto apcArgument = this;
+			auto awakeSuspend = false;
+			auto success = SetWaitableTimer(frameTimer_m, &queue_time, noPeriod, retryDuplicationAPC, apcArgument, awakeSuspend);
+			if (!success) throw Unexpected{ "failed to arm retry timer" };
+		}
 	}
 
 	void sleep(int timeout = INFINITE) {
@@ -445,7 +486,7 @@ struct internal : capture_thread::api {
 			timeout, wake_mask, flags);
 		if (WAIT_FAILED == awoken)
 			throw Unexpected{ "Application Waiting failed" };
-		if (WAIT_OBJECT_0 == awoken - handles_m.size())
+		if (WAIT_OBJECT_0 == awoken - handles_m.size()) 
 			processMessages();
 	}
 
@@ -473,9 +514,9 @@ struct internal : capture_thread::api {
 		error_m = exception;
 		hasError_m = true;
 	}
-	void updateFrame(captured_update& frame, const frame_context& context, int thread_index) {
-		frameUpdaters_m[thread_index].update(frame, context);
-		pointerUpdater_m.update(frame, context);
+	void updateFrame(captured_update& update, const frame_context& context, int thread_index) {
+		frameUpdaters_m[thread_index].update(update.frame, context);
+		pointerUpdater_m.update(update.pointer, context);
 		updatedThreads_m.push_back(thread_index);
 		doRender_m = true;
 	}
@@ -484,14 +525,18 @@ private:
 	config config_m;
 	HWND windowHandle_m;
 	HANDLE powerHandle_m;
+	HANDLE retryTimer_m;
+	HANDLE frameTimer_m;
 public:
 	HANDLE threadHandle_m;
 private:
+	bool canStartDuplication_m = true;
 	bool duplicationStarted_m = false;
 	bool keepRunning_m = true;
 	int returnValue_m = 0;
 	bool hasError_m = false;
 	std::exception_ptr error_m;
+	bool waitFrame_m = false;
 	bool doRender_m = false;
 
 	POINT offset_m;
@@ -519,16 +564,16 @@ int application::run() {
 	return ip->run();
 }
 
-void capture_thread::api::setError(std::exception_ptr error) {
+void capture_thread::callbacks::setError(std::exception_ptr error) {
 	auto self = reinterpret_cast<internal*>(this);
 	auto parameter = make_tuple_ptr(self, error);
 	auto success = QueueUserAPC(internal::setErrorAPC, self->threadHandle_m, (ULONG_PTR)parameter);
 	if (!success) throw Unexpected{ "api::setError failed to queue APC" };
 }
 
-void capture_thread::api::setFrame(captured_update&& frame, const frame_context& context, int thread_index) {
+void capture_thread::callbacks::setFrame(captured_update&& frame, const frame_context& context, size_t thread_index) {
 	auto self = reinterpret_cast<internal*>(this);
-	auto parameter = make_tuple_ptr(self, (captured_update&&)frame, std::ref(context), thread_index);
+	auto parameter = make_tuple_ptr(self, std::move(frame), std::ref(context), thread_index);
 	auto success = QueueUserAPC(internal::setFrameAPC, self->threadHandle_m, (ULONG_PTR)parameter);
 	if (!success) throw Unexpected{ "api::setError failed to queue APC" };
 }

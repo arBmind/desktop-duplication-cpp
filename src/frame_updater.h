@@ -1,12 +1,14 @@
 #pragma once
+#include "stable.h"
 
 #include "base_renderer.h"
 
-#include "captured_update.h"
-#include "frame_context.h"
-
 #include <meta/comptr.h>
 #include <array>
+#include <vector>
+
+struct frame_update;
+struct frame_context;
 
 struct RenderFailure {
 	RenderFailure(HRESULT res, const char* text) {}
@@ -14,18 +16,18 @@ struct RenderFailure {
 
 struct frame_updater {
 	struct init_args : base_renderer::init_args {
-		HANDLE targetHandle;
+		HANDLE targetHandle; // shared texture handle that should be updated
 	};
 	using vertex = base_renderer::vertex;
 	using quad_vertices = std::array<vertex, 6>;
 
 	frame_updater(init_args&& args);
 
-	void update(const captured_update& data, const frame_context& context);
+	void update(const frame_update& data, const frame_context& context);
 
 private:
-	void performMoves(const move_view& moves, const frame_context& context);
-	void updateDirty(const captured_update &data, const dirty_view& dirts, const frame_context& context);
+	void performMoves(const frame_update &data, const frame_context& context);
+	void updateDirty(const frame_update &data, const frame_context& context);
 
 private:
 	struct resources : base_renderer {

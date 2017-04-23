@@ -77,7 +77,7 @@ namespace renderer {
 		return swap_chain;
 	}
 
-	dimension_data getDesktopData(const ComPtr<ID3D11Device>& device, const std::vector<int> desktops) {
+	dimension_data getDimensionData(const ComPtr<ID3D11Device>& device, const std::vector<int> displays) {
 		ComPtr<IDXGIDevice> dxgi_device;
 		auto result = device.As(&dxgi_device);
 		if (IS_ERROR(result)) throw error{ result, "Failed to get IDXGIDevice from device" };
@@ -87,24 +87,24 @@ namespace renderer {
 		if (IS_ERROR(result)) throw error{ result, "Failed to get IDXGIAdapter from device" };
 
 		dimension_data output;
-		output.desktop_rect.top = output.desktop_rect.left = std::numeric_limits<int>::max();
-		output.desktop_rect.bottom = output.desktop_rect.right = std::numeric_limits<int>::min();
+		output.rect.top = output.rect.left = std::numeric_limits<int>::max();
+		output.rect.bottom = output.rect.right = std::numeric_limits<int>::min();
 
-		for (auto desktop : desktops) {
+		for (auto display : displays) {
 			ComPtr<IDXGIOutput> dxgi_output;
-			result = dxgi_adapter->EnumOutputs(desktop, &dxgi_output);
+			result = dxgi_adapter->EnumOutputs(display, &dxgi_output);
 			if (DXGI_ERROR_NOT_FOUND == result) continue;
 			if (IS_ERROR(result)) throw error{ result, "Failed to enumerate Output" };
 
 			DXGI_OUTPUT_DESC description;
 			dxgi_output->GetDesc(&description);
-			output.desktop_rect.top = std::min(output.desktop_rect.top, description.DesktopCoordinates.top);
-			output.desktop_rect.left = std::min(output.desktop_rect.left, description.DesktopCoordinates.left);
-			output.desktop_rect.bottom = std::max(output.desktop_rect.bottom, description.DesktopCoordinates.bottom);
-			output.desktop_rect.right = std::max(output.desktop_rect.right, description.DesktopCoordinates.right);
-			output.used_desktops.push_back(desktop);
+			output.rect.top = std::min(output.rect.top, description.DesktopCoordinates.top);
+			output.rect.left = std::min(output.rect.left, description.DesktopCoordinates.left);
+			output.rect.bottom = std::max(output.rect.bottom, description.DesktopCoordinates.bottom);
+			output.rect.right = std::max(output.rect.right, description.DesktopCoordinates.right);
+			output.used_displays.push_back(display);
 		}
-		if (output.used_desktops.empty()) throw error{ result, "Found no valid Outputs" };
+		if (output.used_displays.empty()) throw error{ result, "Found no valid displays" };
 
 		return output;
 	}

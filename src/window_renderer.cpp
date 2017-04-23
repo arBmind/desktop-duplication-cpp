@@ -92,7 +92,7 @@ void window_renderer::render() {
 	dx.deviceContext()->Draw(6, 0);
 }
 
-void window_renderer::renderPointer(const pointer_data& pointer) {
+void window_renderer::renderPointer(const pointer_buffer& pointer) {
 	if (pointer.position_timestamp == 0) return;
 	if (!pointer.visible) return;
 
@@ -157,7 +157,7 @@ void window_renderer::setViewPort() {
 	dx.deviceContext()->RSSetViewports(1, &view_port);
 }
 
-void window_renderer::updatePointerShape(const pointer_data & pointer) {
+void window_renderer::updatePointerShape(const pointer_buffer & pointer) {
 	D3D11_TEXTURE2D_DESC texture_description;
 	texture_description.Width = pointer.shape_info.Width;
 	texture_description.Height = pointer.shape_info.Height;
@@ -220,7 +220,7 @@ void window_renderer::updatePointerShape(const pointer_data & pointer) {
 		&dx.pointerTextureShaderResource_m);
 }
 
-void window_renderer::activatePointerVertices(const pointer_data & pointer) {
+void window_renderer::activatePointerVertices(const pointer_buffer & pointer) {
 	auto& dx = *dx_m;
 
 	vertex vertices[] = {

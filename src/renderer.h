@@ -27,11 +27,11 @@ namespace renderer {
 	ComPtr<IDXGISwapChain1> createSwapChain(const ComPtr<IDXGIFactory2>& factory, const ComPtr<ID3D11Device>& device, HWND window);
 
 	struct dimension_data {
-		RECT desktop_rect;
-		std::vector<int> used_desktops;
+		RECT rect;
+		std::vector<int> used_displays;
 	};
 
-	dimension_data getDesktopData(const ComPtr<ID3D11Device>& device, const std::vector<int> desktops);
+	dimension_data getDimensionData(const ComPtr<ID3D11Device>& device, const std::vector<int> displays);
 
 	ComPtr<ID3D11Texture2D> createTexture(const ComPtr<ID3D11Device>& device, SIZE size);
 	ComPtr<ID3D11Texture2D> createSharedTexture(const ComPtr<ID3D11Device>& device, SIZE size);

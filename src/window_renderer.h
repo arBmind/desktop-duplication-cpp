@@ -1,13 +1,16 @@
 #pragma once
+#include "stable.h"
+
 #include "base_renderer.h"
 
 #include "meta/optional.h"
 
-struct pointer_data;
+struct pointer_buffer;
 
+// manages state how to render background & pointer to output window
 struct window_renderer {
 	struct init_args : base_renderer::init_args {
-		HWND windowHandle;
+		HWND windowHandle; // window to render to
 		ComPtr<ID3D11Texture2D> texture; // texture is rendered as quad
 	};
 	using vertex = base_renderer::vertex;
@@ -26,14 +29,14 @@ struct window_renderer {
 	void moveTo(vec2f offset);
 
 	void render();
-	void renderPointer(const pointer_data& pointer);
+	void renderPointer(const pointer_buffer& pointer);
 	void swap();
 
 private:
 	void resizeSwapBuffer();
 	void setViewPort();
-	void updatePointerShape(const pointer_data &pointer);
-	void activatePointerVertices(const pointer_data &pointer);
+	void updatePointerShape(const pointer_buffer &pointer);
+	void activatePointerVertices(const pointer_buffer &pointer);
 
 private:
 	float zoom_m = 1.f;

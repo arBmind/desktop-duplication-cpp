@@ -3,6 +3,8 @@
 #include "application.h"
 #include "renderer.h"
 
+#include "captured_update.h"
+
 #include "meta/scope_guard.h"
 
 namespace {
@@ -72,18 +74,18 @@ void capture_thread::run() {
 		initDuplication();
 		while (keepRunning_m) {
 			if (doCapture_m) {
-				auto frame = captureFrame();
+				auto frame = captureUpdate();
 				if (frame) {
-					api_m->setFrame((captured_update&&)*frame, context_m, index_m);
+					callbacks_m->setFrame(std::move(*frame), context_m, index_m);
 					doCapture_m = false;
 				}
 			}
-			auto timeout = doCapture_m ? 10 : INFINITE;
+			auto timeout = doCapture_m ? 1 : INFINITE;
 			SleepEx(timeout, alertable);
 		}
 	}
 	catch (...) {
-		api_m->setError(std::current_exception());
+		callbacks_m->setError(std::current_exception());
 		while (keepRunning_m) {
 			SleepEx(INFINITE, alertable);
 		}
@@ -138,45 +140,54 @@ void capture_thread::handleDeviceError(const char* text, HRESULT result, std::in
 	throw Unexpected{ text };
 }
 
-std::optional<captured_update> capture_thread::captureFrame() {
-	captured_update frame;
+std::optional<captured_update> capture_thread::captureUpdate() {
+	captured_update update;
 	auto time = 50;
 	ComPtr<IDXGIResource> resource;
-	auto result = dupl_m->AcquireNextFrame(time, &frame.info, &resource);
+	DXGI_OUTDUPL_FRAME_INFO frame_info;
+	auto result = dupl_m->AcquireNextFrame(time, &frame_info, &resource);
 	if (DXGI_ERROR_WAIT_TIMEOUT == result) return {};
 	if (IS_ERROR(result)) throw Expected{ "Failed to acquire next frame in capture_thread" };
 
-	if (0 != frame.info.TotalMetadataBufferSize) {
-		frame.meta_data.resize(frame.info.TotalMetadataBufferSize);
+	update.frame.frames = frame_info.AccumulatedFrames;
+	update.frame.present_time = frame_info.LastPresentTime.QuadPart;
+	update.frame.rects_coalesced = frame_info.RectsCoalesced;
+	update.frame.protected_content_masked_out = frame_info.ProtectedContentMaskedOut;
 
-		auto moved_ptr = frame.meta_data.data();
+	if (0 != frame_info.TotalMetadataBufferSize) {
+		update.frame.buffer.resize(frame_info.TotalMetadataBufferSize);
+
+		auto moved_ptr = update.frame.buffer.data();
 		result = dupl_m->GetFrameMoveRects(
-			(uint32_t)frame.meta_data.size(),
+			(uint32_t)update.frame.buffer.size(),
 			reinterpret_cast<DXGI_OUTDUPL_MOVE_RECT*>(moved_ptr),
-			&frame.move_bytes);
+			&update.frame.moved_bytes);
 		if (IS_ERROR(result)) throw Expected{ "Failed to get frame moved rects in capture_thread" };
 
-		auto dirty_ptr = moved_ptr + frame.move_bytes;
+		auto dirty_ptr = moved_ptr + update.frame.moved_bytes;
 		result = dupl_m->GetFrameDirtyRects(
-			(uint32_t)frame.meta_data.size(),
+			(uint32_t)update.frame.buffer.size(),
 			reinterpret_cast<RECT*>(dirty_ptr),
-			&frame.dirty_bytes);
+			&update.frame.dirty_bytes);
 		if (IS_ERROR(result)) throw Expected{ "Failed to get frame dirty rects in capture_thread" };
 	}
-	if (0 != frame.info.PointerShapeBufferSize) {
-		frame.pointer_data.resize(frame.info.PointerShapeBufferSize);
-
-		auto pointer_ptr = frame.pointer_data.data();
-		UINT size_required_dummy;
-		result = dupl_m->GetFramePointerShape(
-			(uint32_t)frame.pointer_data.size(), pointer_ptr, 
-			&size_required_dummy, &frame.pointer_info);
-		// size_required_dummy == frame.pointer_data.size()
-		if (IS_ERROR(result)) throw Expected{ "Failed to get frame pointer shape in capture_thread" };
-	}
-	if (!frame.dirty().empty()) {
-		result = resource.As(&frame.desktop_image);
+	if (!update.frame.dirty().empty()) {
+		result = resource.As(&update.frame.image);
 		if (IS_ERROR(result)) throw Unexpected{ "Failed to get ID3D11Texture from resource in capture_thread" };
 	}
-	return frame;
+
+	update.pointer.update_time = frame_info.LastMouseUpdateTime.QuadPart;
+	update.pointer.position = frame_info.PointerPosition;
+	if (0 != frame_info.PointerShapeBufferSize) {
+		update.pointer.shape_buffer.resize(frame_info.PointerShapeBufferSize);
+
+		auto pointer_ptr = update.pointer.shape_buffer.data();
+		UINT size_required_dummy;
+		result = dupl_m->GetFramePointerShape(
+			(uint32_t)update.pointer.shape_buffer.size(), pointer_ptr, 
+			&size_required_dummy, &update.pointer.shape_info);
+		if (IS_ERROR(result)) throw Expected{ "Failed to get frame pointer shape in capture_thread" };
+		//assert(size_required_dummy == frame.pointer_data.size());
+	}
+	return update;
 }
