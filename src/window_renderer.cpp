@@ -192,7 +192,7 @@ void window_renderer::updatePointerShape(const pointer_buffer & pointer) {
 				auto xor_mask = pointer.shape_data[addr + height*pitch] & mask;
 				auto pixel = and_mask ?
 					(xor_mask ? color{ { 0xFF, 0xFF, 0xFF, 0xFF } } : color{ { 0x00, 0x00, 0x00, 0xFF } }) :
-					(xor_mask ? color{ { 0xFF, 0xFF, 0xFF, 0x00 } } : color{ { 0xFF, 0xFF, 0xFF, 0x00 } });
+					(xor_mask ? color{ { 0xFF, 0xFF, 0xFF, 0x00 } } : color{ { 0x00, 0x00, 0x00, 0x00 } });
 				tmpData[row*width + col] = pixel;
 			}
 		}
