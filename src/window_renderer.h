@@ -36,7 +36,7 @@ private:
 	void resizeSwapBuffer();
 	void setViewPort();
 	void updatePointerShape(const pointer_buffer &pointer);
-	void activatePointerVertices(const pointer_buffer &pointer);
+	void updatePointerVertices(const pointer_buffer &pointer);
 
 private:
 	float zoom_m = 1.f;
@@ -47,6 +47,7 @@ private:
 	HWND windowHandle_m;
 
 	uint64_t lastPointerShapeUpdate_m = 0;
+	uint64_t lastPointerPositionUpdate_m = 0;
 
 	struct resources : base_renderer {
 		resources(window_renderer::init_args&& args);
@@ -57,6 +58,7 @@ private:
 		void createSwapChain(HWND windowHandle);
 		void createMaskedPixelShader();
 		void createLinearSamplerState();
+		void createPointerVertexBuffer();
 
 	public:
 		void createRenderTarget();
@@ -85,6 +87,10 @@ private:
 		void activateLinearSampler(int index = 0) const {
 			deviceContext()->PSSetSamplers(index, 1, linearSamplerState_m.GetAddressOf());
 		}
+		void activatePointerVertexBuffer() {
+			uint32_t stride = sizeof(vertex), offset = 0;
+			deviceContext()->IASetVertexBuffers(0, 1, pointerVertexBuffer_m.GetAddressOf(), &stride, &offset);
+		}
 
 		ComPtr<ID3D11Texture2D> backgroundTexture_m;
 		ComPtr<ID3D11ShaderResourceView> backgroundTextureShaderResource_m;
@@ -96,6 +102,7 @@ private:
 
 		ComPtr<ID3D11Texture2D> pointerTexture_m;
 		ComPtr<ID3D11ShaderResourceView> pointerTextureShaderResource_m;
+		ComPtr<ID3D11Buffer> pointerVertexBuffer_m;
 	};
 
 	meta::optional<resources> dx_m;

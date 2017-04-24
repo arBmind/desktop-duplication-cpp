@@ -94,16 +94,12 @@ void window_renderer::render() {
 
 void window_renderer::renderPointer(const pointer_buffer& pointer) {
 	if (pointer.position_timestamp == 0) return;
+	updatePointerShape(pointer);
 	if (!pointer.visible) return;
+	updatePointerVertices(pointer);
 
 	auto& dx = *dx_m;
-	if (pointer.shape_timestamp != lastPointerShapeUpdate_m) {
-		lastPointerShapeUpdate_m = pointer.shape_timestamp;
-
-		updatePointerShape(pointer);
-	}
-
-	activatePointerVertices(pointer);
+	dx.activatePointerVertexBuffer();
 
 	if (pointer.shape_info.Type == DXGI_OUTDUPL_POINTER_SHAPE_TYPE_COLOR) {
 		dx.activateAlphaBlendState();
@@ -158,6 +154,9 @@ void window_renderer::setViewPort() {
 }
 
 void window_renderer::updatePointerShape(const pointer_buffer & pointer) {
+	if (pointer.shape_timestamp == lastPointerShapeUpdate_m) return;
+	lastPointerShapeUpdate_m = pointer.shape_timestamp;
+
 	D3D11_TEXTURE2D_DESC texture_description;
 	texture_description.Width = pointer.shape_info.Width;
 	texture_description.Height = pointer.shape_info.Height;
@@ -220,7 +219,10 @@ void window_renderer::updatePointerShape(const pointer_buffer & pointer) {
 		&dx.pointerTextureShaderResource_m);
 }
 
-void window_renderer::activatePointerVertices(const pointer_buffer & pointer) {
+void window_renderer::updatePointerVertices(const pointer_buffer & pointer) {
+	if (pointer.position_timestamp == lastPointerPositionUpdate_m) return;
+	lastPointerPositionUpdate_m = pointer.position_timestamp;
+
 	auto& dx = *dx_m;
 
 	vertex vertices[] = {
@@ -257,21 +259,7 @@ void window_renderer::activatePointerVertices(const pointer_buffer & pointer) {
 	mouse_to_desktop(vertices[4], 0, 0);
 	mouse_to_desktop(vertices[5], size.cx, 0);
 
-	D3D11_BUFFER_DESC buffer_description;
-	ZeroMemory(&buffer_description, sizeof(D3D11_BUFFER_DESC));
-	buffer_description.Usage = D3D11_USAGE_DEFAULT;
-	buffer_description.ByteWidth = sizeof(vertices);
-	buffer_description.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-
-	D3D11_SUBRESOURCE_DATA resource_data;
-	ZeroMemory(&resource_data, sizeof(D3D11_SUBRESOURCE_DATA));
-	resource_data.pSysMem = vertices;
-
-	ComPtr<ID3D11Buffer> vertex_buffer;
-	auto result = dx.device()->CreateBuffer(&buffer_description, &resource_data, &vertex_buffer);
-
-	uint32_t stride = sizeof(vertex), offset = 0;
-	dx.deviceContext()->IASetVertexBuffers(0, 1, vertex_buffer.GetAddressOf(), &stride, &offset);
+	dx.deviceContext()->UpdateSubresource(dx.pointerVertexBuffer_m.Get(), 0, nullptr, vertices, 0, 0);
 }
 
 window_renderer::resources::resources(window_renderer::init_args&& args)
@@ -284,6 +272,7 @@ window_renderer::resources::resources(window_renderer::init_args&& args)
 	createRenderTarget();
 	createMaskedPixelShader();
 	createLinearSamplerState();
+	createPointerVertexBuffer();
 }
 
 void window_renderer::resources::createBackgroundTextureShaderResource() {
@@ -350,4 +339,16 @@ void window_renderer::resources::createMaskedPixelShader() {
 
 void window_renderer::resources::createLinearSamplerState() {
 	linearSamplerState_m = createLinearSampler();
+}
+
+void window_renderer::resources::createPointerVertexBuffer() {
+	D3D11_BUFFER_DESC buffer_description;
+	RtlZeroMemory(&buffer_description, sizeof(buffer_description));
+	buffer_description.Usage = D3D11_USAGE_DEFAULT;
+	buffer_description.ByteWidth = 6 * sizeof(vertex);
+	buffer_description.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	buffer_description.CPUAccessFlags = 0;
+
+	auto result = device()->CreateBuffer(&buffer_description, nullptr, &pointerVertexBuffer_m);
+	if (IS_ERROR(result)) throw error{ result, "Failed to create vertex buffer" };
 }
