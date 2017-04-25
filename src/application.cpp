@@ -61,7 +61,9 @@ struct internal : capture_thread::callbacks {
 			break;
 		//case WM_DESTROY: //???
 		case WM_CLOSE:
-			PostQuitMessage(0);
+			if (self->windowHandle_m == window) {
+				PostQuitMessage(0);
+			}
 			break;
 
 		case WM_LBUTTONDBLCLK:
@@ -160,17 +162,105 @@ struct internal : capture_thread::callbacks {
 				true);
 			break;
 		}
+		// Visible Area
+		case WM_RBUTTONUP:
+			if (0 != (GET_KEYSTATE_WPARAM(wParam) & MK_SHIFT)) {
+				self->toggleVisibleArea();
+			}
+			break;
+		case WM_PAINT: 
+			if (window == self->visibleAreaWindow_m) {
+				self->paintVisibleArea();
+				break;
+			}
+			// fall through
 		default:
 			return DefWindowProc(window, message, wParam, lParam);
 		}
 		return 0;
 	}
 
+	constexpr static auto colorKey = RGB(0xFF, 0x20, 0xFF);
+	void toggleVisibleArea() {
+		if (nullptr == visibleAreaWindow_m) {
+			{
+				auto exStyle = WS_EX_LAYERED | WS_EX_TOPMOST;
+				auto style = WS_POPUP;
+				auto hasMenu = false;
+
+				auto rect = visibleAreaRect();
+				AdjustWindowRectEx(&rect, style, hasMenu, exStyle);
+				auto w = 4 + rect.right - rect.left,
+					h = 4 + rect.bottom - rect.top,
+					x = rect.left - 2,
+					y = rect.top - 2;
+
+				auto windowName = nullptr;
+				auto wndParent = windowHandle_m;
+				auto menu = nullptr;
+				auto instance = GetModuleHandle(nullptr);
+				auto param = nullptr;
+				visibleAreaWindow_m = CreateWindowEx(exStyle, WINDOM_CLASS_NAME, windowName, style,
+					x, y, w, h,
+					wndParent, menu, instance, param);
+			}
+			{
+				auto alpha = 0u;
+				auto flags = LWA_COLORKEY;
+				SetLayeredWindowAttributes(visibleAreaWindow_m, colorKey, alpha, flags);
+			}
+			ShowWindow(visibleAreaWindow_m, SW_SHOW);
+			UpdateWindow(visibleAreaWindow_m);
+		}
+		else {
+			DestroyWindow(visibleAreaWindow_m);
+			visibleAreaWindow_m = nullptr;
+		}
+	}
+
+	void updateVisibleArea() {
+		if (nullptr == visibleAreaWindow_m) return;
+
+		auto rect = visibleAreaRect();
+		auto size = rectSize(rect);
+		auto repaint = true;
+		MoveWindow(visibleAreaWindow_m, rect.left - 2, rect.top - 2, size.cx + 4, size.cy + 4, repaint);
+	}
+
+	void paintVisibleArea() {
+		RECT window_rect;
+		GetClientRect(visibleAreaWindow_m, &window_rect);
+		auto window_size = rectSize(window_rect);
+
+		PAINTSTRUCT p;
+		auto dc = BeginPaint(visibleAreaWindow_m, &p);
+
+		SelectObject(dc, GetStockObject(HOLLOW_BRUSH));
+		SelectObject(dc, GetStockObject(DC_PEN));
+
+		SetDCPenColor(dc, RGB(255, 80, 40));
+		Rectangle(dc, 0, 0, window_size.cx, window_size.cy);
+
+		SelectObject(dc, GetStockObject(DC_BRUSH));
+		SetDCBrushColor(dc, colorKey);
+		SetDCPenColor(dc, RGB(255, 255, 255));
+		Rectangle(dc, 1, 1, window_size.cx - 1, window_size.cy - 1);
+
+		EndPaint(visibleAreaWindow_m, &p);
+	}
+
 	void handleSizeChanged(const SIZE& size, const uint32_t flags) {
 		if (!duplicationStarted_m) return;
 		setMaximized((flags & SIZE_MAXIMIZED) != 0);
-		auto changed = windowRenderer_m.resize(size);
-		if (changed) doRender_m = true;
+		RECT window_rect;
+		if (maximized_m) GetWindowRect(windowHandle_m, &window_rect);
+		else GetClientRect(windowHandle_m, &window_rect);
+		auto window_size = rectSize(window_rect);
+		auto changed = windowRenderer_m.resize(window_size);
+		if (changed) {
+			doRender_m = true;
+			updateVisibleArea();
+		}
 	}
 
 	bool maximized_m = false;
@@ -189,40 +279,51 @@ struct internal : capture_thread::callbacks {
 
 	void changeZoom(float zoomDelta) {
 		setZoom(windowRenderer_m.zoom() + zoomDelta);
+		updateVisibleArea();
 	}
 	void setZoom(float zoom) {
 		if (!duplicationStarted_m) return;
 		windowRenderer_m.setZoom(std::max(zoom, 0.05f));
+		updateVisibleArea();
 		doRender_m = true;
 	}
 
 	void toggleMaximized() {
 		::ShowWindow(windowHandle_m, IsWindowMaximized(windowHandle_m) ? SW_SHOWNORMAL : SW_MAXIMIZE);
+		updateVisibleArea();
 	}
 
 	void moveTexture(POINT delta) {
 		windowRenderer_m.moveOffset(delta);
+		updateVisibleArea();
 		doRender_m = true;
 	}
 	void moveTextureTo(int x, int y) {
 		windowRenderer_m.moveToBorder(x, y);
+		updateVisibleArea();
 		doRender_m = true;
 	}
 
-	void fitWindow(HWND otherWindow) {
+	RECT visibleAreaRect() {
 		RECT window_rect;
 		GetClientRect(windowHandle_m, &window_rect);
 		auto window_size = rectSize(window_rect);
-		RECT other_rect;
-		GetWindowRect(otherWindow, &other_rect);
 		auto zoom = windowRenderer_m.zoom();
 		auto renderOffset = windowRenderer_m.offset();
 		auto left = offset_m.x - renderOffset.x;
 		auto top = offset_m.y - renderOffset.y;
 		auto width = long(window_size.cx / zoom);
 		auto height = long(window_size.cy / zoom);
+		return RECT{ left, top, left + width, top + height };
+	}
+
+	void fitWindow(HWND otherWindow) {
+		RECT other_rect;
+		GetWindowRect(otherWindow, &other_rect);
+		auto rect = visibleAreaRect();
+		auto size = rectSize(rect);
 		auto repaint = true;
-		MoveWindow(otherWindow, left, top, width, height, repaint);
+		MoveWindow(otherWindow, rect.left, rect.top, size.cx, size.cy, repaint);
 	}
 
 	static void registerWindowClass(HINSTANCE instanceHandle) {
@@ -551,6 +652,8 @@ private:
 	std::vector<std::thread> threads_m;
 	std::vector<capture_thread_ptr> captureThreads_m;
 	std::vector<int> updatedThreads_m;
+
+	HWND visibleAreaWindow_m = nullptr;
 };
 
 struct application::internal: ::internal {

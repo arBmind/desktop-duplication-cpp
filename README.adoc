@@ -25,6 +25,7 @@ Interactions:
 * pass:[<kbd>Shift</kbd>] + pass:[<kbd>Left Mouse Button</kbd>] + pass:[<kbd>Dragging ⇔⇕</kbd>] allows you to move the visible portion
 * pass:[2×<kbd>Right Mouse Button</kbd>] + [Focus other Window] will position and resize the other window into the mirrored area. Not all windows will like this.
 * pass:[<kbd>Shift</kbd> + <kbd>←</kbd>/<kbd>↑</kbd>/<kbd>→</kbd>/<kbd>↓</kbd>] aligns the mirrored image to the border
+* pass:[<kbd>Shift</kbd> + <kbd>Right Mouse Button</kbd>] toggle a visualisation of the captured area
 
 The tool is optimized to be very response and save CPU time.
 
