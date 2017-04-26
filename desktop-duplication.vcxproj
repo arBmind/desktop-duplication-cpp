@@ -75,20 +75,24 @@
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);src;$(OutDir)</IncludePath>
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(Platform)\$(Configuration)\</IntDir>
+    <GenerateManifest>false</GenerateManifest>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);src;$(OutDir)</IncludePath>
+    <GenerateManifest>false</GenerateManifest>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);src;$(OutDir)</IncludePath>
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(Platform)\$(Configuration)\</IntDir>
+    <GenerateManifest>false</GenerateManifest>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);src;$(OutDir)</IncludePath>
+    <GenerateManifest>false</GenerateManifest>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -157,7 +161,7 @@
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>dxgi.lib;d3d11.lib;Shcore.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d11.lib;user32.lib;gdi32.lib</AdditionalDependencies>
     </Link>
     <FxCompile>
       <VariableName>g_%(Filename)</VariableName>
@@ -187,13 +191,13 @@
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>dxgi.lib;d3d11.lib;Shcore.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d11.lib;user32.lib;gdi32.lib</AdditionalDependencies>
     </Link>
     <FxCompile>
       <VariableName>g_%(Filename)</VariableName>
     </FxCompile>
     <FxCompile>
-      <HeaderFileOutput>$(ProjectDir)%(Filename).h</HeaderFileOutput>
+      <HeaderFileOutput>$(OutDir)%(Filename).h</HeaderFileOutput>
     </FxCompile>
     <FxCompile>
       <ObjectFileOutput />
@@ -211,6 +215,7 @@
     <ClCompile Include="src\pointer_updater.cpp" />
     <ClCompile Include="src\renderer.cpp" />
     <ClCompile Include="src\window_renderer.cpp" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="src\application.h" />
     <ClInclude Include="src\base_renderer.h" />
     <ClInclude Include="src\captured_update.h" />
@@ -254,11 +259,14 @@
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
-    <Manifest Include="src\DeclareDPIAware.manifest" />
+    <Manifest Include="src\main.manifest" />
   </ItemGroup>
   <ItemGroup>
     <None Include="LICENSE" />
     <None Include="README.adoc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="src\main.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

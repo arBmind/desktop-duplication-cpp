@@ -4,8 +4,8 @@
 
 #include "meta/array.h"
 
-#include "../PlainPixelShader.h"
-#include "../VertexShader.h"
+#include "PlainPixelShader.h"
+#include "VertexShader.h"
 
 using error = renderer::error;
 
@@ -20,7 +20,7 @@ base_renderer::base_renderer(init_args && args)
 }
 
 base_renderer::~base_renderer() {
-    // ensure device is clean
+    // ensure device is clean, so we can create a new one!
 	if (deviceContext_m) {
 		deviceContext_m->ClearState();
 		deviceContext_m->Flush();

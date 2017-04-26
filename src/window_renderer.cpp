@@ -3,7 +3,7 @@
 
 #include "renderer.h"
 
-#include "../MaskedPixelShader.h"
+#include "MaskedPixelShader.h"
 
 #include <memory>
 #include <array>

@@ -101,6 +101,9 @@
     <ClInclude Include="src\window_renderer.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>src</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="src">
@@ -111,12 +114,17 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <Manifest Include="src\DeclareDPIAware.manifest">
+    <Manifest Include="src\main.manifest">
       <Filter>src</Filter>
     </Manifest>
   </ItemGroup>
   <ItemGroup>
     <None Include="LICENSE" />
     <None Include="README.adoc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="src\main.rc">
+      <Filter>src</Filter>
+    </ResourceCompile>
   </ItemGroup>
 </Project>
