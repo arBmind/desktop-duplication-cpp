@@ -46,6 +46,7 @@ Project {
             "src/frame_updater.cpp",
             "src/frame_updater.h",
             "src/main.cpp",
+            "src/main.ico",
             "src/main.manifest",
             "src/main.rc",
             "src/meta/array.h",

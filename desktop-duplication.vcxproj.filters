@@ -121,10 +121,16 @@
   <ItemGroup>
     <None Include="LICENSE" />
     <None Include="README.adoc" />
+    <None Include=".editorconfig" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="src\main.rc">
       <Filter>src</Filter>
     </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="src\main.ico">
+      <Filter>src</Filter>
+    </Image>
   </ItemGroup>
 </Project>

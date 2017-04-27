@@ -111,7 +111,7 @@
       <VariableName>g_%(Filename)</VariableName>
     </FxCompile>
     <FxCompile>
-      <HeaderFileOutput>$(ProjectDir)%(Filename).h</HeaderFileOutput>
+      <HeaderFileOutput>$(OutDir)%(Filename).h</HeaderFileOutput>
     </FxCompile>
     <FxCompile>
       <ObjectFileOutput />
@@ -137,7 +137,7 @@
       <VariableName>g_%(Filename)</VariableName>
     </FxCompile>
     <FxCompile>
-      <HeaderFileOutput>$(ProjectDir)%(Filename).h</HeaderFileOutput>
+      <HeaderFileOutput>$(OutDir)%(Filename).h</HeaderFileOutput>
     </FxCompile>
     <FxCompile>
       <ObjectFileOutput />
@@ -167,7 +167,7 @@
       <VariableName>g_%(Filename)</VariableName>
     </FxCompile>
     <FxCompile>
-      <HeaderFileOutput>$(ProjectDir)%(Filename).h</HeaderFileOutput>
+      <HeaderFileOutput>$(OutDir)%(Filename).h</HeaderFileOutput>
     </FxCompile>
     <FxCompile>
       <ObjectFileOutput />
@@ -262,11 +262,15 @@
     <Manifest Include="src\main.manifest" />
   </ItemGroup>
   <ItemGroup>
+    <None Include=".editorconfig" />
     <None Include="LICENSE" />
     <None Include="README.adoc" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="src\main.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="src\main.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
