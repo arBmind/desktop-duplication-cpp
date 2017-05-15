@@ -269,10 +269,12 @@ struct internal : capture_thread::callbacks {
     maximized_m = maximized;
     bool success = true;
     if (maximized_m) {
-      success = PowerSetRequest(powerHandle_m, PowerRequestDisplayRequired);
+      success = PowerSetRequest(powerHandle_m, PowerRequestDisplayRequired)
+        && PowerSetRequest(powerHandle_m, PowerRequestSystemRequired);
     }
     else {
-      success = PowerClearRequest(powerHandle_m, PowerRequestDisplayRequired);
+      success = PowerClearRequest(powerHandle_m, PowerRequestDisplayRequired)
+        && PowerClearRequest(powerHandle_m, PowerRequestSystemRequired);
     }
     if (!success) throw Unexpected{ "Failed to cast power request" };
   }
