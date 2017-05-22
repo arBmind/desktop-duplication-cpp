@@ -66,11 +66,14 @@ struct internal : capture_thread::callbacks {
       }
       break;
 
+    case WM_SIZE:
+      if (self->windowHandle_m == window) {
+        self->handleSizeChanged(SIZE{ LOWORD(lParam), HIWORD(lParam) }, (uint32_t)wParam);
+      }
+      break;
+
     case WM_LBUTTONDBLCLK:
       self->toggleMaximized();
-      break;
-    case WM_SIZE:
-      self->handleSizeChanged(SIZE{ LOWORD(lParam), HIWORD(lParam) }, (uint32_t)wParam);
       break;
 
       // Zoom
