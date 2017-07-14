@@ -65,6 +65,11 @@ void capture_thread::stop() {
 	QueueUserAPC(&capture_thread::stopAPC, threadHandle_m, (ULONG_PTR)parameter);
 }
 
+double clockToMilliseconds( clock_t ticks ) {
+   // units/(units/time) => time (seconds) * 1000 = milliseconds
+   return ( ticks / (double)CLOCKS_PER_SEC )*1000.0;
+}
+
 void capture_thread::run() {
 	threadHandle_m = GetCurrentThreadHandle();
 	LATER(CloseHandle(threadHandle_m));
@@ -72,13 +77,35 @@ void capture_thread::run() {
 	try {
 		setDesktop();
 		initDuplication();
+
+      clock_t deltaTime = 0;
+      unsigned long frames = 0;
+      double  frameRate = 0;
+      double  averageFrameTimeMilliseconds = 33.333;
+
 		while (keepRunning_m) {
 			if (doCapture_m) {
+        clock_t beginFrame = clock();
 				auto frame = captureUpdate();
-				if (frame) {
-					callbacks_m->setFrame(std::move(*frame), context_m, index_m);
-					doCapture_m = false;
-				}
+        if (frame) {
+          clock_t endFrame = clock();
+          frame.value().captureFPS = (int)frameRate;
+          frame.value().capturedFrames = frames;
+
+          callbacks_m->setFrame(std::move(*frame), context_m, index_m);
+          doCapture_m = false;
+
+          deltaTime += endFrame - beginFrame;
+          frames++;
+
+          if (clockToMilliseconds(deltaTime) > 1000.0)
+          {
+            frameRate = (double)frames*0.5 + frameRate*0.5;
+            frames = 0;
+            deltaTime -= CLOCKS_PER_SEC;
+            averageFrameTimeMilliseconds = 1000.0 / (frameRate == 0 ? 0.001 : frameRate);
+          }
+        }
 			}
 			auto timeout = doCapture_m ? 1 : INFINITE;
 			SleepEx(timeout, alertable);

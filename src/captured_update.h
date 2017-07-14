@@ -40,4 +40,6 @@ struct pointer_update {
 struct captured_update {
 	frame_update frame;
 	pointer_update pointer;
+   int captureFPS;
+   unsigned long capturedFrames;
 };

@@ -12,6 +12,8 @@ struct application {
 		std::vector<int> displays;
 		float zoom = 1;
 		//RECT rect;
+
+      bool showCaptureFrameRate = false;
 	};
 
 	application(config&& cfg);

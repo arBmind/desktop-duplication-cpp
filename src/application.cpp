@@ -549,8 +549,14 @@ struct internal : capture_thread::callbacks {
     ShowWindowBorder(windowHandle_m, !IsWindowMaximized(windowHandle_m));
     try {
       windowRenderer_m.render();
+
       windowRenderer_m.renderPointer(pointerUpdater_m.data());
+
+      if( config_m.showCaptureFrameRate )
+         windowRenderer_m.renderFPS( captureFPS_m, capturedFrames_m );
+
       windowRenderer_m.swap();
+
       for (auto index : updatedThreads_m) captureThreads_m[index]->next();
       updatedThreads_m.clear();
       awaitNextFrame();
@@ -626,6 +632,8 @@ struct internal : capture_thread::callbacks {
     frameUpdaters_m[thread_index].update(update.frame, context);
     pointerUpdater_m.update(update.pointer, context);
     updatedThreads_m.push_back(thread_index);
+    captureFPS_m = update.captureFPS;
+    capturedFrames_m = update.capturedFrames;
     doRender_m = true;
   }
 
@@ -646,6 +654,8 @@ private:
   std::exception_ptr error_m;
   bool waitFrame_m = false;
   bool doRender_m = false;
+  int captureFPS_m = 0;
+  unsigned long capturedFrames_m = 0;
 
   POINT offset_m;
   window_renderer windowRenderer_m;
