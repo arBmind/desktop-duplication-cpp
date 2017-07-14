@@ -6,6 +6,8 @@ int WINAPI WinMain(HINSTANCE instanceHandle, HINSTANCE, char*, int showCommand) 
 	config.showCommand = showCommand;
 	config.displays.push_back(0); // TODO: parse commandline / config file
 
+   config.showCaptureFrameRate = wcsstr( GetCommandLine(), L"--ShowCaptureFPS" ) != nullptr;
+
 	application app(std::move(config));
     return app.run();
 }

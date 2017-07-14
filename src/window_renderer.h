@@ -4,8 +4,12 @@
 #include "base_renderer.h"
 
 #include "meta/optional.h"
+#include <memory>
+
 
 struct pointer_buffer;
+
+#include <SpriteFont.h>
 
 // manages state how to render background & pointer to output window
 struct window_renderer {
@@ -30,6 +34,7 @@ struct window_renderer {
 
 	void render();
 	void renderPointer(const pointer_buffer& pointer);
+   void renderFPS( int captureFPS, unsigned long frames );
 	void swap();
 
 private:
@@ -103,6 +108,8 @@ private:
 		ComPtr<ID3D11Texture2D> pointerTexture_m;
 		ComPtr<ID3D11ShaderResourceView> pointerTextureShaderResource_m;
 		ComPtr<ID3D11Buffer> pointerVertexBuffer_m;
+
+      std::unique_ptr<DirectX::SpriteFont> m_Font;
 	};
 
 	meta::optional<resources> dx_m;

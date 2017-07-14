@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <array>
+#include <string>
 
 using error = renderer::error;
 
@@ -115,6 +116,15 @@ void window_renderer::renderPointer(const pointer_buffer& pointer) {
 	}
 
 	dx.deviceContext()->Draw(6, 0);
+}
+
+void window_renderer::renderFPS( int captureFPS, unsigned long frames )
+{
+   std::wstring FPSMessage = L"Capture FPS: " + std::to_wstring( captureFPS ) + L"; Frames: " + std::to_wstring( frames );
+   DirectX::SpriteBatch sprite( dx_m->deviceContext() );
+   sprite.Begin();
+   dx_m->m_Font->DrawString( &sprite, FPSMessage.c_str(), DirectX::XMFLOAT2{ 10.f, 10.f } );
+   sprite.End();
 }
 
 void window_renderer::swap() {
@@ -273,6 +283,12 @@ window_renderer::resources::resources(window_renderer::init_args&& args)
 	createMaskedPixelShader();
 	createLinearSamplerState();
 	createPointerVertexBuffer();
+
+   wchar_t path[ MAX_PATH ];
+   ::GetModuleFileName( nullptr, path, MAX_PATH );
+   *wcsrchr( (wchar_t*)&path, L'\\' ) = '\0';
+   wcscat_s( path, MAX_PATH, L"\\arial.spritefont" );
+   m_Font.reset( new DirectX::SpriteFont( device(), path ) );
 }
 
 void window_renderer::resources::createBackgroundTextureShaderResource() {

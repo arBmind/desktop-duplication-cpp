@@ -122,6 +122,7 @@
     <None Include="LICENSE" />
     <None Include="README.adoc" />
     <None Include=".editorconfig" />
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="src\main.rc">
