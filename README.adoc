@@ -26,6 +26,7 @@ Interactions:
 * pass:[2×<kbd>Right Mouse Button</kbd>] + [Focus other Window] will position and resize the other window into the mirrored area. Not all windows will like this.
 * pass:[<kbd>Shift</kbd> + <kbd>←</kbd>/<kbd>↑</kbd>/<kbd>→</kbd>/<kbd>↓</kbd>] aligns the mirrored image to the border
 * pass:[<kbd>Shift</kbd> + <kbd>Right Mouse Button</kbd>] toggle a visualisation of the captured area
+* pass:[<kbd>Ctrl</kbd> + <kbd>P</kbd>] toggle pause. Freezes the image.
 
 The tool is optimized to be very response and save CPU time.
 
@@ -33,6 +34,8 @@ The tool is optimized to be very response and save CPU time.
 
 ### 2.0 - TBA
 
+* pause / freeze feature
+* visualization of state in taskbar
 * Your Ideas are welcome (see Contributions)
 
 ### 1.0 - 2017-04-16 (Revision Easter Release)
