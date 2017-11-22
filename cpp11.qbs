@@ -8,12 +8,14 @@ Project {
     CppApplication {
         name: "desktop-duplication"
         consoleApplication: false
+
+        Depends { name: 'cpp' }
         cpp.cxxLanguageVersion: "c++17"
         cpp.minimumWindowsVersion: "10.0"
         cpp.generateManifestFile: false
         cpp.includePaths: 'src'
         cpp.cxxFlags: ['/std:c++latest']
-        cpp.dynamicLibraries: ['d3d11.lib', "user32.lib", "gdi32.lib"]
+        cpp.dynamicLibraries: ['d3d11', "User32", "Gdi32", "Shell32", "Ole32", "Comctl32"]
 
         Depends { name: 'hlsl' }
         hlsl.shaderModel: '4_0_level_9_3'
@@ -30,11 +32,6 @@ Project {
         }
 
         files: [
-            ".editorconfig",
-            ".gitignore",
-            "LICENSE",
-            "README.adoc",
-            "qbs/modules/hlsl/hlsl.qbs",
             "src/application.cpp",
             "src/application.h",
             "src/base_renderer.cpp",
@@ -65,8 +62,26 @@ Project {
             "src/renderer.cpp",
             "src/renderer.h",
             "src/stable.h",
+            "src/win32/power_request.cpp",
+            "src/win32/power_request.h",
+            "src/win32/taskbar_list.cpp",
+            "src/win32/taskbar_list.h",
             "src/window_renderer.cpp",
             "src/window_renderer.h",
+        ]
+    }
+
+    Product {
+        name: "Extra Files"
+        builtByDefault: false
+
+        files: [
+            ".clang-format",
+            ".editorconfig",
+            ".gitignore",
+            "LICENSE",
+            "README.adoc",
+            "qbs/modules/hlsl/hlsl.qbs",
         ]
     }
 }

@@ -36,6 +36,12 @@
     <ClCompile Include="src\window_renderer.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\win32\power_request.cpp">
+      <Filter>src\win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\taskbar_list.cpp">
+      <Filter>src\win32</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\meta\array.h">
@@ -104,6 +110,12 @@
     <ClInclude Include="resource.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="src\win32\power_request.h">
+      <Filter>src\win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\taskbar_list.h">
+      <Filter>src\win32</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="src">
@@ -112,6 +124,12 @@
     <Filter Include="src\meta">
       <UniqueIdentifier>{c1306954-4001-4709-97a0-8b2ff7c09077}</UniqueIdentifier>
     </Filter>
+    <Filter Include="extra files">
+      <UniqueIdentifier>{c85c7adb-69ce-4c39-a3cd-74b3c92181dd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\win32">
+      <UniqueIdentifier>{121a67aa-18e3-4e37-a977-336a672bee3c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Manifest Include="src\main.manifest">
@@ -119,9 +137,18 @@
     </Manifest>
   </ItemGroup>
   <ItemGroup>
-    <None Include="LICENSE" />
-    <None Include="README.adoc" />
-    <None Include=".editorconfig" />
+    <None Include=".editorconfig">
+      <Filter>extra files</Filter>
+    </None>
+    <None Include="LICENSE">
+      <Filter>extra files</Filter>
+    </None>
+    <None Include="README.adoc">
+      <Filter>extra files</Filter>
+    </None>
+    <None Include=".clang-format">
+      <Filter>extra files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="src\main.rc">

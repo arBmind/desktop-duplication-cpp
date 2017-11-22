@@ -1,29 +1,27 @@
 #pragma once
 #include "stable.h"
 
-#include <vector>
 #include <memory>
+#include <vector>
 
 struct application {
-	struct config {
-		HINSTANCE instanceHandle;
-		bool showCommand;
+    struct config {
+        HINSTANCE instanceHandle;
+        bool showCommand;
 
-		std::vector<int> displays;
-		float zoom = 1;
-		//RECT rect;
-	};
+        std::vector<int> displays;
+        float zoom = 1;
+        // RECT rect;
+    };
 
-	application(config&& cfg);
+    application(config &&cfg);
 
-	int run();
+    int run();
 
 private:
-	struct internal;
-	struct internal_deleter {
-		void operator() (internal*);
-	};
-	using internal_ptr = std::unique_ptr<internal, internal_deleter>;
-
-	internal_ptr ip;
+    struct internal;
+    struct internal_deleter {
+        void operator()(internal *);
+    };
+    std::unique_ptr<internal, internal_deleter> ip;
 };
