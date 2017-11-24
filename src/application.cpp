@@ -224,9 +224,11 @@ struct internal : capture_thread::callbacks {
     }
 
     void handleWindowSetup(HWND window) {
-        windowHandle_m = window;
-        canStartDuplication_m = true;
-        taskbarList_m = decltype(taskbarList_m)(window);
+        if (!windowHandle_m) {
+            windowHandle_m = window;
+            canStartDuplication_m = true;
+            taskbarList_m = decltype(taskbarList_m)(window);
+        }
     }
 
     bool handleCommand(int command) {
@@ -253,10 +255,10 @@ struct internal : capture_thread::callbacks {
                      x = rect.left - 2, y = rect.top - 2;
 
                 auto windowName = nullptr;
-                auto wndParent = windowHandle_m;
-                auto menu = nullptr;
+                auto parentWindow = windowHandle_m;
+                auto menu = HMENU{};
+                auto customParam = this;
                 auto instance = GetModuleHandle(nullptr);
-                auto param = nullptr;
                 visibleAreaWindow_m = CreateWindowExW(
                     exStyle,
                     WINDOM_CLASS_NAME,
@@ -266,10 +268,10 @@ struct internal : capture_thread::callbacks {
                     y,
                     w,
                     h,
-                    wndParent,
+                    parentWindow,
                     menu,
                     instance,
-                    param);
+                    customParam);
             }
             {
                 BYTE alpha = 0u;
