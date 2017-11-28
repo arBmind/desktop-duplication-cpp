@@ -45,6 +45,8 @@ uint32_t GetModifierKeys() {
     return output;
 }
 
+enum ThumbButton { Maximized, Freezed, VisibleArea };
+
 } // namespace
 
 struct internal : capture_thread::callbacks {
@@ -86,6 +88,11 @@ struct internal : capture_thread::callbacks {
     LRESULT windowProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
         auto fallback = [&] { return ::DefWindowProc(window, message, wParam, lParam); };
         if (processId_m != GetCurrentProcessId()) return fallback();
+
+        if (message == taskbarCreatedMessage_m) {
+            createTaskbarToolbar();
+            return 0;
+        }
 
         switch (message) {
         case WM_CLOSE:
@@ -181,18 +188,10 @@ struct internal : capture_thread::callbacks {
                     else if (mk & MK_CONTROL)
                         changeZoom(-0.001f);
                     break;
-                case 'P':
+                case 'F': // Freeze
+                case 'P': // Pause / Play
                     if (mk == MK_CONTROL) {
-                        freezed ^= 1;
-                        if (freezed) {
-                            taskbarList_m.setProgressFlags(win32::progress::Paused);
-                            taskbarList_m.setProgressValue(1, 1);
-                        }
-                        else {
-                            taskbarList_m.setProgressFlags(win32::progress::Normal);
-                            taskbarList_m.setProgressValue(1, 1);
-                            captureNextFrame();
-                        }
+                        toggleFreezed();
                     }
                 } // switch
             }
@@ -212,6 +211,12 @@ struct internal : capture_thread::callbacks {
                 toggleVisibleArea();
             }
             break;
+        case WM_COMMAND: {
+            auto command = LOWORD(wParam);
+            auto handled = handleCommand(command);
+            if (handled) break;
+            return fallback();
+        }
         case WM_PAINT:
             if (window == visibleAreaWindow_m) {
                 paintVisibleArea();
@@ -228,17 +233,52 @@ struct internal : capture_thread::callbacks {
             windowHandle_m = window;
             canStartDuplication_m = true;
             taskbarList_m = decltype(taskbarList_m)(window);
+            toggleVisibleArea();
         }
+    }
+
+    void createTaskbarToolbar() {
+        taskbarList_m.setButtonFlags(ThumbButton::Maximized, win32::ThumbButtonFlag::Enabled);
+        taskbarList_m.setButtonTooltip(ThumbButton::Maximized, L"toggle fullscreen");
+        visualizeMaximized();
+
+        taskbarList_m.setButtonFlags(ThumbButton::Freezed, win32::ThumbButtonFlag::Enabled);
+        taskbarList_m.setButtonTooltip(ThumbButton::Freezed, L"toggle freezed");
+        visualizeFreezed();
+
+        taskbarList_m.setButtonFlags(ThumbButton::VisibleArea, win32::ThumbButtonFlag::Enabled);
+        taskbarList_m.setButtonTooltip(ThumbButton::VisibleArea, L"toggle area");
+        visualizeVisibleArea();
+
+        taskbarList_m.updateThumbButtons();
     }
 
     bool handleCommand(int command) {
         switch (command) {
-        case 3: {
-            ShowWindow(windowHandle_m, SW_MAXIMIZE);
-            return true;
-        }
+        case ThumbButton::Maximized: toggleMaximized(); return true;
+        case ThumbButton::Freezed: toggleFreezed(); return true;
+        case ThumbButton::VisibleArea: toggleVisibleArea(); return true;
         }
         return false;
+    }
+
+    void toggleFreezed() {
+        freezed ^= 1;
+        visualizeFreezed();
+        taskbarList_m.updateThumbButtons();
+        if (!freezed) captureNextFrame();
+    }
+    void visualizeFreezed() {
+        if (freezed) {
+            taskbarList_m.setProgressFlags(win32::ProgressFlag::Paused);
+            taskbarList_m.setProgressValue(1, 1);
+            taskbarList_m.setButtonLetterIcon(1, 0xE768, RGB(100, 255, 100));
+        }
+        else {
+            taskbarList_m.setProgressFlags(win32::ProgressFlag::Normal);
+            taskbarList_m.setProgressValue(1, 1);
+            taskbarList_m.setButtonLetterIcon(1, 0xE103, RGB(255, 200, 10));
+        }
     }
 
     constexpr static auto colorKey = RGB(0xFF, 0x20, 0xFF);
@@ -284,6 +324,17 @@ struct internal : capture_thread::callbacks {
         else {
             DestroyWindow(visibleAreaWindow_m);
             visibleAreaWindow_m = nullptr;
+        }
+        visualizeVisibleArea();
+        taskbarList_m.updateThumbButtons();
+    }
+
+    void visualizeVisibleArea() {
+        if (visibleAreaWindow_m) {
+            taskbarList_m.setButtonLetterIcon(ThumbButton::VisibleArea, 0xEF20, RGB(128, 128, 128));
+        }
+        else {
+            taskbarList_m.setButtonLetterIcon(ThumbButton::VisibleArea, 0xEF20, colorKey);
         }
     }
 
@@ -358,6 +409,16 @@ struct internal : capture_thread::callbacks {
         ::ShowWindow(
             windowHandle_m, IsWindowMaximized(windowHandle_m) ? SW_SHOWNORMAL : SW_MAXIMIZE);
         updateVisibleArea();
+        visualizeMaximized();
+        taskbarList_m.updateThumbButtons();
+    }
+    void visualizeMaximized() {
+        if (IsWindowMaximized(windowHandle_m)) {
+            taskbarList_m.setButtonLetterIcon(ThumbButton::Maximized, 0xE923);
+        }
+        else {
+            taskbarList_m.setButtonLetterIcon(ThumbButton::Maximized, 0xE922);
+        }
     }
 
     void moveTexture(POINT delta) {
@@ -492,6 +553,10 @@ struct internal : capture_thread::callbacks {
     int run() {
         try {
             registerWindowClass(config_m.instanceHandle);
+            taskbarCreatedMessage_m = RegisterWindowMessageW(L"TaskbarButtonCreated");
+
+            ChangeWindowMessageFilter(taskbarCreatedMessage_m, MSGFLT_ADD);
+            ChangeWindowMessageFilter(WM_COMMAND, MSGFLT_ADD);
             threadHandle_m = GetCurrentThreadHandle();
             LATER(CloseHandle(threadHandle_m));
             powerRequest_m = decltype(powerRequest_m)(L"Desktop Duplication Tool");
@@ -528,13 +593,13 @@ struct internal : capture_thread::callbacks {
                     continue;
                 }
                 startDuplication();
-                taskbarList_m.setProgressFlags(win32::progress::Normal);
+                taskbarList_m.setProgressFlags(win32::ProgressFlag::Normal);
                 taskbarList_m.setProgressValue(1, 1);
             }
             catch (Expected &e) {
                 OutputDebugStringA(e.text);
                 OutputDebugStringA("\n");
-                taskbarList_m.setProgressFlags(win32::progress::Error);
+                taskbarList_m.setProgressFlags(win32::ProgressFlag::Error);
                 taskbarList_m.setProgressValue(1, 3);
                 stopDuplication();
                 awaitRetry();
@@ -550,7 +615,7 @@ struct internal : capture_thread::callbacks {
             catch (Expected &e) {
                 OutputDebugStringA(e.text);
                 OutputDebugStringA("\n");
-                taskbarList_m.setProgressFlags(win32::progress::Error);
+                taskbarList_m.setProgressFlags(win32::ProgressFlag::Error);
                 taskbarList_m.setProgressValue(2, 3);
                 error_m = {};
                 stopDuplication();
@@ -584,6 +649,7 @@ struct internal : capture_thread::callbacks {
             for (const auto &capture : captureThreads_m) {
                 startCaptureThread(*capture, offset_m, handle);
             }
+            updateVisibleArea();
         }
         catch (const renderer::error &e) {
             throw Expected{e.message};
@@ -725,6 +791,7 @@ private:
     config config_m;
     DWORD processId_m{};
     HWND windowHandle_m{};
+    UINT taskbarCreatedMessage_m{};
     win32::power_request<PowerRequestDisplayRequired, PowerRequestSystemRequired> powerRequest_m;
     win32::taskbar_list taskbarList_m;
     HANDLE retryTimer_m{};
