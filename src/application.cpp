@@ -18,6 +18,12 @@
 namespace {
 constexpr const auto WINDOM_CLASS_NAME = L"desdup";
 
+RECT WindowWorkArea() {
+    RECT result;
+    SystemParametersInfo(SPI_GETWORKAREA, 0, &result, 0);
+    return result;
+}
+
 bool IsWindowMaximized(HWND windowHandle) {
     WINDOWPLACEMENT placement{};
     placement.length = sizeof(WINDOWPLACEMENT);
@@ -481,11 +487,13 @@ struct internal : capture_thread::callbacks {
     }
 
     HWND createMainWindow(HINSTANCE instanceHandle, int showCommand) {
-        auto rect = RECT{100, 100, 924, 678};
+        auto wA = WindowWorkArea();
+        auto wS = rectSize(wA);
+        auto rect = RECT{wA.right - wS.cx / 2, 0, wA.right, wA.bottom - wS.cy / 2};
         DWORD style = WS_OVERLAPPEDWINDOW;
         auto exStyle = DWORD{};
         auto hasMenu = false;
-        AdjustWindowRectEx(&rect, style, hasMenu, exStyle);
+        // AdjustWindowRectEx(&rect, style, hasMenu, exStyle);
 
         static constexpr const auto title =
             L"Duplicate Desktop Presenter (Double Click to toggle "
