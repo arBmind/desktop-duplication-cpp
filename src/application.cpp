@@ -102,9 +102,7 @@ struct internal : capture_thread::callbacks {
 
         switch (message) {
         case WM_CLOSE:
-            if (windowHandle_m == window) {
-                PostQuitMessage(0);
-            }
+            if (windowHandle_m == window) PostQuitMessage(0);
             break;
 
         case WM_SIZE:
@@ -243,7 +241,9 @@ struct internal : capture_thread::callbacks {
         }
     }
 
+    bool haveTaskbar = false;
     void createTaskbarToolbar() {
+        haveTaskbar = true;
         taskbarList_m.setButtonFlags(ThumbButton::Maximized, win32::ThumbButtonFlag::Enabled);
         taskbarList_m.setButtonTooltip(ThumbButton::Maximized, L"toggle fullscreen");
         visualizeMaximized();
@@ -270,8 +270,10 @@ struct internal : capture_thread::callbacks {
 
     void toggleFreezed() {
         freezed ^= 1;
-        visualizeFreezed();
-        taskbarList_m.updateThumbButtons();
+        if (haveTaskbar) {
+            visualizeFreezed();
+            taskbarList_m.updateThumbButtons();
+        }
         if (!freezed) captureNextFrame();
     }
     void visualizeFreezed() {
@@ -331,8 +333,10 @@ struct internal : capture_thread::callbacks {
             DestroyWindow(visibleAreaWindow_m);
             visibleAreaWindow_m = nullptr;
         }
-        visualizeVisibleArea();
-        taskbarList_m.updateThumbButtons();
+        if (haveTaskbar) {
+            visualizeVisibleArea();
+            taskbarList_m.updateThumbButtons();
+        }
     }
 
     void visualizeVisibleArea() {
@@ -415,8 +419,10 @@ struct internal : capture_thread::callbacks {
         ::ShowWindow(
             windowHandle_m, IsWindowMaximized(windowHandle_m) ? SW_SHOWNORMAL : SW_MAXIMIZE);
         updateVisibleArea();
-        visualizeMaximized();
-        taskbarList_m.updateThumbButtons();
+        if (haveTaskbar) {
+            visualizeMaximized();
+            taskbarList_m.updateThumbButtons();
+        }
     }
     void visualizeMaximized() {
         if (IsWindowMaximized(windowHandle_m)) {
@@ -657,7 +663,6 @@ struct internal : capture_thread::callbacks {
             for (const auto &capture : captureThreads_m) {
                 startCaptureThread(*capture, offset_m, handle);
             }
-            updateVisibleArea();
         }
         catch (const renderer::error &e) {
             throw Expected{e.message};
@@ -714,6 +719,7 @@ struct internal : capture_thread::callbacks {
             windowRenderer_m.swap();
             captureNextFrame();
             awaitNextFrame();
+            updateVisibleArea();
         }
         catch (const renderer::error &e) {
             throw Expected{e.message};
