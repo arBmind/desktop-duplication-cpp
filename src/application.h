@@ -21,7 +21,7 @@ struct application {
 private:
     struct internal;
     struct internal_deleter {
-        void operator()(internal *);
+        void operator()(internal *) noexcept;
     };
     std::unique_ptr<internal, internal_deleter> ip;
 };

@@ -5,7 +5,7 @@
 
 #include <vector>
 
-inline SIZE rectSize(const RECT &rect) {
+inline auto rectSize(const RECT &rect) noexcept -> SIZE {
     return SIZE{rect.right - rect.left, rect.bottom - rect.top};
 }
 

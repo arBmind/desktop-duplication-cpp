@@ -19,7 +19,7 @@ struct pointer_buffer {
 struct pointer_updater {
     void update(pointer_update &update, const frame_context &context);
 
-    const pointer_buffer &data() const { return pointer_m; }
+    const pointer_buffer &data() const noexcept { return pointer_m; }
 
 private:
     RECT pointer_desktop_m = {0, 0, 0, 0};

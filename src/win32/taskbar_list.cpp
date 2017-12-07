@@ -1,13 +1,14 @@
 #include "taskbar_list.h"
 
+#include <CppCoreCheck/Warnings.h>
+#include <gsl.h>
+
 namespace win32 {
 
 menu_entry::menu_entry(const menu_entry::this_t &o)
     : icon(DuplicateIcon(nullptr, o.icon))
     , bitmap(
-          o.bitmap ? reinterpret_cast<HBITMAP>(
-                         CopyImage(reinterpret_cast<const HANDLE>(o.bitmap), IMAGE_BITMAP, 0, 0, 0))
-                   : HBITMAP{})
+          o.bitmap ? static_cast<HBITMAP>(CopyImage(o.bitmap, IMAGE_BITMAP, 0, 0, 0)) : HBITMAP{})
     , tooltip(o.tooltip)
     , flags(o.flags) {}
 
@@ -15,9 +16,8 @@ menu_entry::this_t &menu_entry::operator=(const menu_entry::this_t &o) {
     if (icon) DestroyIcon(icon);
     if (bitmap) DeleteObject(bitmap);
     icon = o.icon ? DuplicateIcon(nullptr, o.icon) : HICON{};
-    bitmap = o.bitmap ? reinterpret_cast<HBITMAP>(CopyImage(
-                            reinterpret_cast<const HANDLE>(o.bitmap), IMAGE_BITMAP, 0, 0, 0))
-                      : HBITMAP{};
+    bitmap =
+        o.bitmap ? static_cast<HBITMAP>(CopyImage(o.bitmap, IMAGE_BITMAP, 0, 0, 0)) : HBITMAP{};
     tooltip = o.tooltip;
     flags = o.flags;
     return *this;
@@ -34,7 +34,7 @@ taskbar_list::taskbar_list(HWND window, config config)
     }
 }
 
-taskbar_list taskbar_list::forWindow(HWND window) const {
+taskbar_list taskbar_list::forWindow(HWND window) const noexcept {
     auto r = taskbar_list{};
     r.window = window;
     r.p = p;
@@ -54,8 +54,8 @@ void taskbar_list::setProgressValue(uint64_t value, uint64_t total) {
     if (p) p->SetProgressValue(window, value, total);
 }
 
-void taskbar_list::setButtonLetterIcon(size_t idx, wchar_t chr, COLORREF color) {
-    auto size = iconSize;
+void taskbar_list::setButtonLetterIcon(size_t idx, wchar_t chr, COLORREF color) noexcept {
+    const auto size = iconSize;
     constexpr const char fontName[] = "Segoe MDL2 Assets";
     auto dc = GetDC(window);
     auto dcMem = CreateCompatibleDC(dc);
@@ -65,20 +65,20 @@ void taskbar_list::setButtonLetterIcon(size_t idx, wchar_t chr, COLORREF color) 
     ReleaseDC(window, dc);
     DeleteDC(dc);
 
-    auto fontHeight = size;
-    auto fontWidth = 0;
-    auto escapement = 0;
-    auto orientation = 0;
-    auto weight = 900;
-    auto italic = false;
-    auto underline = false;
-    auto strikeOut = false;
-    auto charSet = 0u;
-    DWORD outputPrecision = OUT_TT_PRECIS;
-    DWORD clipPrecision = CLIP_DEFAULT_PRECIS;
-    DWORD quality = NONANTIALIASED_QUALITY;
-    DWORD pitchAndFamily = FF_DONTCARE;
-    auto font = CreateFontA(
+    const auto fontHeight = size;
+    const auto fontWidth = 0;
+    const auto escapement = 0;
+    const auto orientation = 0;
+    const auto weight = 900;
+    const auto italic = false;
+    const auto underline = false;
+    const auto strikeOut = false;
+    const auto charSet = 0u;
+    const DWORD outputPrecision = OUT_TT_PRECIS;
+    const DWORD clipPrecision = CLIP_DEFAULT_PRECIS;
+    const DWORD quality = NONANTIALIASED_QUALITY;
+    const DWORD pitchAndFamily = FF_DONTCARE;
+    const auto font = CreateFontA(
         fontHeight,
         fontWidth,
         escapement,
@@ -93,21 +93,21 @@ void taskbar_list::setButtonLetterIcon(size_t idx, wchar_t chr, COLORREF color) 
         quality,
         pitchAndFamily,
         fontName);
-    auto oldFont = SelectObject(dcMem, font);
+    const auto oldFont = SelectObject(dcMem, font);
 
-    auto oldBitmap = SelectObject(dcMem, bitmap);
+    const auto oldBitmap = SelectObject(dcMem, bitmap);
     // SetDCBrushColor(dcMem, RGB(0, 0, 0));
     // PatBlt(dcMem, 0, 0, size, size, PATCOPY);
 
     auto rect = RECT{0, 0, size, size};
-    auto brush = CreateSolidBrush(RGB(0, 0, 0));
+    const auto brush = CreateSolidBrush(RGB(0, 0, 0));
     FillRect(dcMem, &rect, brush);
 
-    auto oldBkMode = SetBkMode(dcMem, TRANSPARENT);
+    const auto oldBkMode = SetBkMode(dcMem, TRANSPARENT);
     // auto oldBkColor = SetBkColor(dcMem, RGB(0, 0, 0));
-    auto oldTextColor = SetTextColor(dcMem, color);
+    const auto oldTextColor = SetTextColor(dcMem, color);
 
-    UINT format = DT_NOCLIP | DT_CENTER | DT_SINGLELINE | DT_VCENTER;
+    const UINT format = DT_NOCLIP | DT_CENTER | DT_SINGLELINE | DT_VCENTER;
     DrawTextW(dcMem, &chr, 1, &rect, format);
 
     SetBkMode(dcMem, oldBkMode);
@@ -124,10 +124,16 @@ void taskbar_list::setButtonLetterIcon(size_t idx, wchar_t chr, COLORREF color) 
     DeleteDC(dcMem);
 }
 
-void taskbar_list::setButtonFlags(size_t idx, ThumbButtonFlags flags) { menu[idx].flags = flags; }
+void taskbar_list::setButtonFlags(size_t idx, ThumbButtonFlags flags) noexcept {
+    if (idx < menu.size()) {
+        menu[idx].flags = flags;
+    }
+}
 
 void taskbar_list::setButtonTooltip(size_t idx, std::wstring str) {
-    menu[idx].tooltip = std::move(str);
+    if (idx < menu.size()) {
+        menu[idx].tooltip = std::move(str);
+    }
 }
 
 static auto toWindowsFlags(ThumbButtonFlags flags) -> THUMBBUTTONFLAGS {
@@ -146,14 +152,17 @@ void taskbar_list::updateThumbButtons() {
         image_updated = false;
     }
 
-    auto menuData = std::array<THUMBBUTTON, 7>{};
+    constexpr auto menuSize = 7u;
+    auto menuData = std::array<THUMBBUTTON, menuSize>{};
     auto i = 0u;
     for (auto &entry : menu) {
-        auto &data = menuData[i];
+        [[gsl::suppress(26482)]] // menu and menuData have the same size
+            auto &data = menuData[i];
         data.iId = i + idBase;
         data.dwFlags = toWindowsFlags(entry.flags);
         data.dwMask = THB_FLAGS | THB_TOOLTIP;
-        wcscpy_s(data.szTip, ARRAYSIZE(data.szTip), entry.tooltip.c_str());
+        [[gsl::suppress(26485)]] // this is save
+            wcscpy_s(data.szTip, ARRAYSIZE(data.szTip), entry.tooltip.c_str());
         data.hIcon = entry.icon;
         if (entry.icon) data.dwMask |= THB_ICON;
         if (entry.bitmap) {
@@ -164,11 +173,11 @@ void taskbar_list::updateThumbButtons() {
     }
 
     if (!menu_initialized) {
-        auto hr = p->ThumbBarAddButtons(window, menuData.size(), menuData.data());
+        const auto hr = p->ThumbBarAddButtons(window, menuSize, menuData.data());
         menu_initialized = true;
     }
     else {
-        p->ThumbBarUpdateButtons(window, menuData.size(), menuData.data());
+        p->ThumbBarUpdateButtons(window, menuSize, menuData.data());
     }
 }
 

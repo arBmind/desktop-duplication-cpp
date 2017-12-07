@@ -11,7 +11,7 @@ struct frame_update;
 struct frame_context;
 
 struct RenderFailure {
-    RenderFailure(HRESULT res, const char *text) {}
+    RenderFailure(HRESULT res, const char *text) noexcept {}
 };
 
 struct frame_updater {

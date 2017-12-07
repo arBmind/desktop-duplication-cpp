@@ -6,6 +6,7 @@
 #include "captured_update.h"
 
 #include "meta/scope_guard.h"
+#include <gsl.h>
 
 namespace {
 
@@ -58,13 +59,19 @@ void capture_thread::nextAPC(ULONG_PTR parameter) {
 }
 
 void capture_thread::next() {
-    auto parameter = make_tuple_ptr(this);
-    QueueUserAPC(&capture_thread::nextAPC, threadHandle_m, reinterpret_cast<ULONG_PTR>(parameter));
+    [[gsl::suppress(26490)]] // bad API design
+        QueueUserAPC(
+            &capture_thread::nextAPC,
+            threadHandle_m,
+            reinterpret_cast<ULONG_PTR>(make_tuple_ptr(this)));
 }
 
 void capture_thread::stop() {
-    auto parameter = make_tuple_ptr(this);
-    QueueUserAPC(&capture_thread::stopAPC, threadHandle_m, reinterpret_cast<ULONG_PTR>(parameter));
+    [[gsl::suppress(26490)]] // bad API design
+        QueueUserAPC(
+            &capture_thread::stopAPC,
+            threadHandle_m,
+            reinterpret_cast<ULONG_PTR>(make_tuple_ptr(this)));
 }
 
 void capture_thread::run() {
@@ -101,7 +108,7 @@ void capture_thread::initDuplication() {
 
     ComPtr<IDXGIAdapter> dxgi_adapter;
     result = dxgi_device->GetParent(__uuidof(IDXGIAdapter), &dxgi_adapter);
-    auto parentExpected = {DXGI_ERROR_ACCESS_LOST, static_cast<HRESULT>(WAIT_ABANDONED)};
+    const auto parentExpected = {DXGI_ERROR_ACCESS_LOST, HRESULT{WAIT_ABANDONED}};
     if (IS_ERROR(result))
         handleDeviceError("Failed to get IDXGIAdapter from device", result, parentExpected);
 
@@ -121,8 +128,8 @@ void capture_thread::initDuplication() {
     if (IS_ERROR(result)) {
         if (DXGI_ERROR_NOT_CURRENTLY_AVAILABLE == result)
             throw Unexpected{"Maximum of desktop duplications reached!"};
-        auto duplicateExpected = {
-            static_cast<HRESULT>(E_ACCESSDENIED),
+        const auto duplicateExpected = {
+            HRESULT{E_ACCESSDENIED},
             DXGI_ERROR_UNSUPPORTED,
             DXGI_ERROR_SESSION_DISCONNECTED,
         };
@@ -144,7 +151,7 @@ void capture_thread::handleDeviceError(
 
 std::optional<captured_update> capture_thread::captureUpdate() {
     captured_update update;
-    auto time = 50;
+    const auto time = 50;
     ComPtr<IDXGIResource> resource;
     DXGI_OUTDUPL_FRAME_INFO frame_info;
     auto result = dupl_m->AcquireNextFrame(time, &frame_info, &resource);
@@ -161,16 +168,15 @@ std::optional<captured_update> capture_thread::captureUpdate() {
 
         auto moved_ptr = update.frame.buffer.data();
         result = dupl_m->GetFrameMoveRects(
-            static_cast<uint32_t>(update.frame.buffer.size()),
+            frame_info.TotalMetadataBufferSize,
             reinterpret_cast<DXGI_OUTDUPL_MOVE_RECT *>(moved_ptr),
             &update.frame.moved_bytes);
         if (IS_ERROR(result)) throw Expected{"Failed to get frame moved rects in capture_thread"};
 
         auto dirty_ptr = moved_ptr + update.frame.moved_bytes;
+        const auto dirty_size = frame_info.TotalMetadataBufferSize - update.frame.moved_bytes;
         result = dupl_m->GetFrameDirtyRects(
-            static_cast<uint32_t>(update.frame.buffer.size()),
-            reinterpret_cast<RECT *>(dirty_ptr),
-            &update.frame.dirty_bytes);
+            dirty_size, reinterpret_cast<RECT *>(dirty_ptr), &update.frame.dirty_bytes);
         if (IS_ERROR(result)) throw Expected{"Failed to get frame dirty rects in capture_thread"};
     }
     if (!update.frame.dirty().empty()) {
@@ -185,9 +191,10 @@ std::optional<captured_update> capture_thread::captureUpdate() {
         update.pointer.shape_buffer.resize(frame_info.PointerShapeBufferSize);
 
         auto pointer_ptr = update.pointer.shape_buffer.data();
+        const auto pointer_size = update.pointer.shape_buffer.size();
         UINT size_required_dummy;
         result = dupl_m->GetFramePointerShape(
-            static_cast<uint32_t>(update.pointer.shape_buffer.size()),
+            reinterpret_cast<const uint32_t &>(pointer_size),
             pointer_ptr,
             &size_required_dummy,
             &update.pointer.shape_info);

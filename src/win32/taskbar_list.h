@@ -46,6 +46,7 @@ struct menu_entry {
     this_t &operator=(const this_t &);
     menu_entry(this_t &&o) = default;
     this_t &operator=(this_t &&o) = default;
+    ~menu_entry() = default;
 };
 using menu_entries = std::array<menu_entry, 7>;
 
@@ -63,15 +64,16 @@ struct taskbar_list {
     this_t &operator=(const this_t &) = default;
     taskbar_list(this_t &&o) = default;
     this_t &operator=(this_t &&o) = default;
+    ~taskbar_list() = default;
 
-    taskbar_list forWindow(HWND window) const;
+    taskbar_list forWindow(HWND window) const noexcept;
 
     void setProgressFlags(ProgressFlags = ProgressFlag::Disabled);
     void setProgressValue(uint64_t value, uint64_t total = 100);
 
-    void setButtonLetterIcon(size_t idx, wchar_t chr, COLORREF color = RGB(255, 255, 255));
+    void setButtonLetterIcon(size_t idx, wchar_t chr, COLORREF color = RGB(255, 255, 255)) noexcept;
     void setButtonTooltip(size_t idx, std::wstring = {});
-    void setButtonFlags(size_t idx, ThumbButtonFlags = ThumbButtonFlag::Hidden);
+    void setButtonFlags(size_t idx, ThumbButtonFlags = ThumbButtonFlag::Hidden) noexcept;
 
     void updateThumbButtons();
 

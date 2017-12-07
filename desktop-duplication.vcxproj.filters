@@ -149,6 +149,9 @@
     <None Include=".clang-format">
       <Filter>extra files</Filter>
     </None>
+    <None Include="packages.config">
+      <Filter>extra files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="src\main.rc">

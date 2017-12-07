@@ -19,16 +19,18 @@ struct window_renderer {
     };
 
     void init(init_args &&args);
-    void reset();
+    void reset() noexcept;
 
-    float zoom() const { return zoom_m; }
-    POINT offset() const { return {static_cast<long>(offset_m.x), static_cast<long>(offset_m.y)}; }
+    float zoom() const noexcept { return zoom_m; }
+    POINT offset() const noexcept {
+        return {static_cast<long>(offset_m.x), static_cast<long>(offset_m.y)};
+    }
 
-    bool resize(SIZE size);
-    void setZoom(float zoom);
-    void moveOffset(POINT delta);
+    bool resize(SIZE size) noexcept;
+    void setZoom(float zoom) noexcept;
+    void moveOffset(POINT delta) noexcept;
     void moveToBorder(int x, int y);
-    void moveTo(vec2f offset);
+    void moveTo(vec2f offset) noexcept;
 
     void render();
     void renderPointer(const pointer_buffer &pointer);
@@ -77,7 +79,8 @@ private:
                 0, 1, backgroundTextureShaderResource_m.GetAddressOf());
         }
         void activateBackgroundVertexBuffer() {
-            uint32_t stride = sizeof(vertex), offset = 0;
+            const uint32_t stride = sizeof(vertex);
+            const uint32_t offset = 0;
             deviceContext()->IASetVertexBuffers(
                 0, 1, backgroundVertexBuffer_m.GetAddressOf(), &stride, &offset);
         }
@@ -93,7 +96,8 @@ private:
             deviceContext()->PSSetSamplers(index, 1, linearSamplerState_m.GetAddressOf());
         }
         void activatePointerVertexBuffer() {
-            uint32_t stride = sizeof(vertex), offset = 0;
+            const uint32_t stride = sizeof(vertex);
+            const uint32_t offset = 0;
             deviceContext()->IASetVertexBuffers(
                 0, 1, pointerVertexBuffer_m.GetAddressOf(), &stride, &offset);
         }

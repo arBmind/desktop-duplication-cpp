@@ -38,7 +38,7 @@ struct capture_thread {
         POINT offset{}; // offset from desktop to target coordinates
     };
 
-    capture_thread(init_args &&args)
+    capture_thread(init_args &&args) noexcept
         : callbacks_m(args.callbacks)
         , display_m(args.display)
         , index_m(args.threadIndex) {}

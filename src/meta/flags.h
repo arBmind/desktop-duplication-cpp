@@ -70,7 +70,7 @@ private:
     template<class... Args>
     static constexpr auto build(Args... args) noexcept -> flags {
         auto val = flags{0};
-        auto x = {((val |= args), 0)...};
+        const auto x = {((val |= args), 0)...};
         (void)x;
         return val;
     }

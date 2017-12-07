@@ -21,8 +21,9 @@ struct frame_update {
     uint32_t moved_bytes{};
     uint32_t dirty_bytes{};
 
-    moved_view moved() const { return moved_view::from_bytes(buffer.data(), moved_bytes); }
-    dirty_view dirty() const {
+    moved_view moved() const noexcept { return moved_view::from_bytes(buffer.data(), moved_bytes); }
+    dirty_view dirty() const noexcept {
+#pragma warning(suppress : 26481)
         return dirty_view::from_bytes(buffer.data() + moved_bytes, dirty_bytes);
     }
 };

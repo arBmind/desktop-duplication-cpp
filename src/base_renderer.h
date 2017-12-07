@@ -4,6 +4,7 @@
 #include "meta/comptr.h"
 #include <array>
 #include <cinttypes>
+#include <gsl.h>
 
 // shared between frame updater & window renderer
 struct base_renderer {
@@ -25,11 +26,12 @@ struct base_renderer {
     base_renderer &operator=(const base_renderer &) = default;
     base_renderer &operator=(base_renderer &&) = default;
 
-    ComPtr<ID3D11ShaderResourceView> createShaderTexture(ID3D11Texture2D *texture) const;
+    ComPtr<ID3D11ShaderResourceView>
+    createShaderTexture(gsl::not_null<ID3D11Texture2D *> texture) const;
     ComPtr<ID3D11SamplerState> createLinearSampler();
 
-    ID3D11Device *device() const { return device_m.Get(); }
-    ID3D11DeviceContext *deviceContext() const { return deviceContext_m.Get(); }
+    ID3D11Device *device() const noexcept { return device_m.Get(); }
+    ID3D11DeviceContext *deviceContext() const noexcept { return deviceContext_m.Get(); }
 
     void activateNoRenderTarget() const {
         deviceContext_m->OMSetRenderTargets(0, nullptr, nullptr);

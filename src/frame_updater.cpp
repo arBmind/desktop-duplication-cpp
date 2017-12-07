@@ -4,14 +4,15 @@
 
 #include "captured_update.h"
 #include "frame_context.h"
+#include <gsl.h>
 
 namespace {
-RECT rectMoveTo(const RECT &rect, const POINT &p) {
-    auto size = rectSize(rect);
+RECT rectMoveTo(const RECT &rect, const POINT &p) noexcept {
+    const auto size = rectSize(rect);
     return RECT{p.x, p.y, p.x + size.cx, p.y + size.cy};
 }
 
-RECT rotate(const RECT &rect, DXGI_MODE_ROTATION rotation, const SIZE &size) {
+RECT rotate(const RECT &rect, DXGI_MODE_ROTATION rotation, const SIZE &size) noexcept {
     switch (rotation) {
     case DXGI_MODE_ROTATION_UNSPECIFIED:
     case DXGI_MODE_ROTATION_IDENTITY: return rect;
@@ -99,7 +100,7 @@ void frame_updater::updateDirty(const frame_update &data, const frame_context &c
     auto dirts = data.dirty();
     if (dirts.empty()) return;
 
-    auto *desktop = data.image.Get();
+    const auto desktop = gsl::not_null<ID3D11Texture2D *>(data.image.Get());
 
     ComPtr<ID3D11ShaderResourceView> shader_resource = dx_m.createShaderTexture(desktop);
     dx_m.deviceContext()->PSSetShaderResources(0, 1, shader_resource.GetAddressOf());
@@ -115,10 +116,10 @@ void frame_updater::updateDirty(const frame_update &data, const frame_context &c
     const auto desktop_size = rectSize(context.output_desc.DesktopCoordinates);
     const auto rotation = context.output_desc.Rotation;
 
-    const auto center_x = static_cast<long>(target_description.Width) / 2;
-    const auto center_y = static_cast<long>(target_description.Height) / 2;
+    const auto center_x = gsl::narrow_cast<long>(target_description.Width) / 2;
+    const auto center_y = gsl::narrow_cast<long>(target_description.Height) / 2;
 
-    auto make_vertex = [&](int x, int y) {
+    const auto make_vertex = [&](int x, int y) {
         return vertex{(x + target_x - center_x) / static_cast<float>(center_x),
                       -1 * (y + target_y - center_y) / static_cast<float>(center_y),
                       x / static_cast<float>(desktop_description.Width),
@@ -144,7 +145,8 @@ void frame_updater::updateDirty(const frame_update &data, const frame_context &c
     D3D11_BUFFER_DESC buffer_description;
     RtlZeroMemory(&buffer_description, sizeof(buffer_description));
     buffer_description.Usage = D3D11_USAGE_DEFAULT;
-    buffer_description.ByteWidth = static_cast<uint32_t>(sizeof(quad_vertices) * dirts.size());
+    [[gsl::suppress(26472)]] // conversion required because of APIs
+        buffer_description.ByteWidth = static_cast<uint32_t>(sizeof(quad_vertices) * dirts.size());
     buffer_description.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     buffer_description.CPUAccessFlags = 0;
 
@@ -153,11 +155,12 @@ void frame_updater::updateDirty(const frame_update &data, const frame_context &c
     init_data.pSysMem = dirtyQuads_m.data();
 
     ComPtr<ID3D11Buffer> vertex_buffer;
-    auto result = dx_m.device()->CreateBuffer(&buffer_description, &init_data, &vertex_buffer);
+    const auto result =
+        dx_m.device()->CreateBuffer(&buffer_description, &init_data, &vertex_buffer);
     if (IS_ERROR(result)) throw RenderFailure(result, "Failed to create dirty vertex buffer");
 
-    uint32_t stride = sizeof(vertex);
-    uint32_t offset = 0;
+    const uint32_t stride = sizeof(vertex);
+    const uint32_t offset = 0;
     dx_m.deviceContext()->IASetVertexBuffers(0, 1, vertex_buffer.GetAddressOf(), &stride, &offset);
 
     D3D11_VIEWPORT view_port;
@@ -169,7 +172,9 @@ void frame_updater::updateDirty(const frame_update &data, const frame_context &c
     view_port.TopLeftY = 0.0f;
     dx_m.deviceContext()->RSSetViewports(1, &view_port);
 
-    dx_m.deviceContext()->Draw(static_cast<uint32_t>(6 * dirts.size()), 0);
+    [[gsl::suppress(26472)]] // conversion required because of APIs
+        dx_m.deviceContext()
+            ->Draw(static_cast<uint32_t>(6 * dirts.size()), 0);
 
     // dx_m.activateNoRenderTarget();
     ID3D11ShaderResourceView *noResource = nullptr;

@@ -13,25 +13,26 @@
 #include "meta/scope_guard.h"
 #include "meta/tuple.h"
 
+#include <gsl.h>
 #include <windowsx.h>
 
 namespace {
 constexpr const auto WINDOM_CLASS_NAME = L"desdup";
 
-RECT WindowWorkArea() {
+RECT WindowWorkArea() noexcept {
     RECT result;
     SystemParametersInfo(SPI_GETWORKAREA, 0, &result, 0);
     return result;
 }
 
-bool IsWindowMaximized(HWND windowHandle) {
+bool IsWindowMaximized(HWND windowHandle) noexcept {
     WINDOWPLACEMENT placement{};
     placement.length = sizeof(WINDOWPLACEMENT);
     const auto success = GetWindowPlacement(windowHandle, &placement);
     return success && placement.showCmd == SW_MAXIMIZE;
 }
 
-void ShowWindowBorder(HWND windowHandle, bool shown) {
+void ShowWindowBorder(HWND windowHandle, bool shown) noexcept {
     auto style = GetWindowLong(windowHandle, GWL_STYLE);
     const auto flags = WS_BORDER | WS_SIZEBOX | WS_DLGFRAME;
     if (shown) {
@@ -43,7 +44,7 @@ void ShowWindowBorder(HWND windowHandle, bool shown) {
 
     SetWindowLong(windowHandle, GWL_STYLE, style);
 }
-uint32_t GetModifierKeys() {
+uint32_t GetModifierKeys() noexcept {
     auto output = 0u;
     if ((GetKeyState(VK_SHIFT) & 0x8000) != 0) output |= MK_SHIFT;
     if ((GetKeyState(VK_CONTROL) & 0x8000) != 0) output |= MK_CONTROL;
@@ -65,11 +66,14 @@ struct internal : capture_thread::callbacks {
     static auto extractApp(HWND window, UINT message, LPARAM lParam) {
         switch (message) {
         case WM_NCCREATE: {
+#pragma warning(disable : 26490)
             auto create_struct = reinterpret_cast<LPCREATESTRUCT>(lParam);
-            auto app = reinterpret_cast<internal *>(create_struct->lpCreateParams);
-            SetWindowLongPtrW(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(app));
+#pragma warning(disable : 26471)
+            const auto app = gsl::not_null<internal *>{
+                reinterpret_cast<internal *>(create_struct->lpCreateParams)};
+            SetWindowLongPtrW(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(app.get()));
             app->handleWindowSetup(window);
-            return app;
+            return app.get();
         }
         case WM_NCDESTROY: {
             auto app = reinterpret_cast<internal *>(GetWindowLongPtr(window, GWLP_USERDATA));
@@ -92,7 +96,9 @@ struct internal : capture_thread::callbacks {
     bool freezed = false;
     LPARAM lastpos;
     LRESULT windowProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
-        auto fallback = [&] { return ::DefWindowProc(window, message, wParam, lParam); };
+        const auto fallback = [&]() noexcept {
+            return ::DefWindowProc(window, message, wParam, lParam);
+        };
         if (processId_m != GetCurrentProcessId()) return fallback();
 
         if (message == taskbarCreatedMessage_m) {
@@ -108,7 +114,7 @@ struct internal : capture_thread::callbacks {
         case WM_SIZE:
             if (windowHandle_m == window) {
                 handleSizeChanged(
-                    SIZE{LOWORD(lParam), HIWORD(lParam)}, static_cast<uint32_t>(wParam));
+                    SIZE{LOWORD(lParam), HIWORD(lParam)}, reinterpret_cast<uint32_t &>(wParam));
             }
             break;
 
@@ -138,8 +144,8 @@ struct internal : capture_thread::callbacks {
         case WM_LBUTTONUP: dragging = false; break;
         case WM_MOUSEMOVE:
             if (dragging && GET_KEYSTATE_WPARAM(wParam) == (MK_LBUTTON | MK_SHIFT)) {
-                auto delta = POINT{GET_X_LPARAM(lParam) - GET_X_LPARAM(lastpos),
-                                   GET_Y_LPARAM(lParam) - GET_Y_LPARAM(lastpos)};
+                const auto delta = POINT{GET_X_LPARAM(lParam) - GET_X_LPARAM(lastpos),
+                                         GET_Y_LPARAM(lParam) - GET_Y_LPARAM(lastpos)};
                 moveTexture(delta);
                 lastpos = lParam;
             }
@@ -172,7 +178,8 @@ struct internal : capture_thread::callbacks {
                 if (mk == MK_SHIFT) moveTextureTo(+1, 0);
                 break;
             default: {
-                const auto ch = MapVirtualKey(static_cast<uint32_t>(wParam), MAPVK_VK_TO_CHAR);
+                const auto ch =
+                    MapVirtualKey(reinterpret_cast<uint32_t &>(wParam), MAPVK_VK_TO_CHAR);
                 switch (ch) {
                 case '0':
                     if (mk == MK_CONTROL)
@@ -204,8 +211,8 @@ struct internal : capture_thread::callbacks {
         }
             // DPI Aware
         case WM_DPICHANGED: {
-            auto new_rect = reinterpret_cast<LPRECT>(lParam);
-            auto new_size = rectSize(*new_rect);
+            const auto new_rect = gsl::not_null<LPRECT>{reinterpret_cast<LPRECT>(lParam)};
+            const auto new_size = rectSize(*new_rect);
             MoveWindow(window, new_rect->left, new_rect->top, new_size.cx, new_size.cy, true);
             break;
         }
@@ -216,8 +223,8 @@ struct internal : capture_thread::callbacks {
             }
             break;
         case WM_COMMAND: {
-            auto command = LOWORD(wParam);
-            auto handled = handleCommand(command);
+            const auto command = LOWORD(wParam);
+            const auto handled = handleCommand(command);
             if (handled) break;
             return fallback();
         }
@@ -293,20 +300,20 @@ struct internal : capture_thread::callbacks {
     void toggleVisibleArea() {
         if (nullptr == visibleAreaWindow_m) {
             {
-                DWORD exStyle = WS_EX_LAYERED | WS_EX_TOPMOST;
-                auto style = WS_POPUP;
-                auto hasMenu = false;
+                const DWORD exStyle = WS_EX_LAYERED | WS_EX_TOPMOST;
+                const auto style = WS_POPUP;
+                const auto hasMenu = false;
 
                 auto rect = visibleAreaRect();
                 AdjustWindowRectEx(&rect, style, hasMenu, exStyle);
-                auto w = 4 + rect.right - rect.left, h = 4 + rect.bottom - rect.top,
-                     x = rect.left - 2, y = rect.top - 2;
+                const auto w = 4 + rect.right - rect.left, h = 4 + rect.bottom - rect.top,
+                           x = rect.left - 2, y = rect.top - 2;
 
-                auto windowName = nullptr;
-                auto parentWindow = windowHandle_m;
-                auto menu = HMENU{};
-                auto customParam = this;
-                auto instance = GetModuleHandle(nullptr);
+                const auto windowName = nullptr;
+                const auto parentWindow = windowHandle_m;
+                const auto menu = HMENU{};
+                const auto customParam = this;
+                const auto instance = GetModuleHandle(nullptr);
                 visibleAreaWindow_m = CreateWindowExW(
                     exStyle,
                     WINDOM_CLASS_NAME,
@@ -322,8 +329,8 @@ struct internal : capture_thread::callbacks {
                     customParam);
             }
             {
-                BYTE alpha = 0u;
-                BYTE flags = LWA_COLORKEY;
+                const BYTE alpha = 0u;
+                const BYTE flags = LWA_COLORKEY;
                 SetLayeredWindowAttributes(visibleAreaWindow_m, colorKey, alpha, flags);
             }
             ShowWindow(visibleAreaWindow_m, SW_SHOW);
@@ -339,7 +346,7 @@ struct internal : capture_thread::callbacks {
         }
     }
 
-    void visualizeVisibleArea() {
+    void visualizeVisibleArea() noexcept {
         if (visibleAreaWindow_m) {
             taskbarList_m.setButtonLetterIcon(ThumbButton::VisibleArea, 0xEF20, RGB(128, 128, 128));
         }
@@ -348,20 +355,20 @@ struct internal : capture_thread::callbacks {
         }
     }
 
-    void updateVisibleArea() {
+    void updateVisibleArea() noexcept {
         if (nullptr == visibleAreaWindow_m) return;
 
-        auto rect = visibleAreaRect();
-        auto size = rectSize(rect);
-        auto repaint = true;
+        const auto rect = visibleAreaRect();
+        const auto size = rectSize(rect);
+        const auto repaint = true;
         MoveWindow(
             visibleAreaWindow_m, rect.left - 2, rect.top - 2, size.cx + 4, size.cy + 4, repaint);
     }
 
-    void paintVisibleArea() {
+    void paintVisibleArea() noexcept {
         RECT window_rect;
         GetClientRect(visibleAreaWindow_m, &window_rect);
-        auto window_size = rectSize(window_rect);
+        const auto window_size = rectSize(window_rect);
 
         PAINTSTRUCT p;
         auto dc = BeginPaint(visibleAreaWindow_m, &p);
@@ -380,9 +387,9 @@ struct internal : capture_thread::callbacks {
         EndPaint(visibleAreaWindow_m, &p);
     }
 
-    void handleSizeChanged(const SIZE &, const uint32_t flags) {
+    void handleSizeChanged(const SIZE &, const uint32_t flags) noexcept {
         if (!duplicationStarted_m) return;
-        bool maximized = (flags & SIZE_MAXIMIZED) != 0;
+        const bool maximized = (flags & SIZE_MAXIMIZED) != 0;
         togglePowerRequest(maximized);
         RECT window_rect{};
         if (maximized)
@@ -397,18 +404,18 @@ struct internal : capture_thread::callbacks {
         }
     }
 
-    void togglePowerRequest(bool enable) {
+    void togglePowerRequest(bool enable) noexcept {
         const auto success = enable ? powerRequest_m.set() : powerRequest_m.clear();
         if (!success) {
             OutputDebugStringA("Power Request Failed!\n");
         }
     }
 
-    void changeZoom(float zoomDelta) {
+    void changeZoom(float zoomDelta) noexcept {
         setZoom(windowRenderer_m.zoom() + zoomDelta);
         updateVisibleArea();
     }
-    void setZoom(float zoom) {
+    void setZoom(float zoom) noexcept {
         if (!duplicationStarted_m) return;
         windowRenderer_m.setZoom(std::max(zoom, 0.05f));
         updateVisibleArea();
@@ -424,7 +431,7 @@ struct internal : capture_thread::callbacks {
             taskbarList_m.updateThumbButtons();
         }
     }
-    void visualizeMaximized() {
+    void visualizeMaximized() noexcept {
         if (IsWindowMaximized(windowHandle_m)) {
             taskbarList_m.setButtonLetterIcon(ThumbButton::Maximized, 0xE923);
         }
@@ -433,7 +440,7 @@ struct internal : capture_thread::callbacks {
         }
     }
 
-    void moveTexture(POINT delta) {
+    void moveTexture(POINT delta) noexcept {
         windowRenderer_m.moveOffset(delta);
         updateVisibleArea();
         doRender_m = true;
@@ -444,7 +451,7 @@ struct internal : capture_thread::callbacks {
         doRender_m = true;
     }
 
-    RECT visibleAreaRect() {
+    RECT visibleAreaRect() noexcept {
         RECT window_rect;
         GetClientRect(windowHandle_m, &window_rect);
         const auto window_size = rectSize(window_rect);
@@ -457,21 +464,21 @@ struct internal : capture_thread::callbacks {
         return RECT{left, top, left + width, top + height};
     }
 
-    void fitWindow(HWND otherWindow) {
+    void fitWindow(HWND otherWindow) noexcept {
         RECT other_rect;
         GetWindowRect(otherWindow, &other_rect);
-        auto rect = visibleAreaRect();
-        auto size = rectSize(rect);
-        auto repaint = true;
+        const auto rect = visibleAreaRect();
+        const auto size = rectSize(rect);
+        const auto repaint = true;
         MoveWindow(otherWindow, rect.left, rect.top, size.cx, size.cy, repaint);
     }
 
     static auto registerWindowClass(HINSTANCE instanceHandle) -> ATOM {
-        auto cursor = LoadCursor(nullptr, IDC_CROSS);
+        const auto cursor = LoadCursor(nullptr, IDC_CROSS);
         if (!cursor) throw Unexpected{"LoadCursor failed"};
         LATER(DestroyCursor(cursor));
 
-        auto icon = LoadIconW(instanceHandle, L"desk1");
+        const auto icon = LoadIconW(instanceHandle, L"desk1");
 
         WNDCLASSEXW window_class;
         window_class.cbSize = sizeof(WNDCLASSEXW);
@@ -493,22 +500,20 @@ struct internal : capture_thread::callbacks {
     }
 
     HWND createMainWindow(HINSTANCE instanceHandle, int showCommand) {
-        auto wA = WindowWorkArea();
-        auto wS = rectSize(wA);
-        auto rect = RECT{wA.right - wS.cx / 2, 0, wA.right, wA.bottom - wS.cy / 2};
-        DWORD style = WS_OVERLAPPEDWINDOW;
-        auto exStyle = DWORD{};
-        auto hasMenu = false;
+        const auto wA = WindowWorkArea();
+        const auto wS = rectSize(wA);
+        const auto rect = RECT{wA.right - wS.cx / 2, 0, wA.right, wA.bottom - wS.cy / 2};
+        const DWORD style = WS_OVERLAPPEDWINDOW;
+        const auto exStyle = DWORD{};
+        const auto hasMenu = false;
         // AdjustWindowRectEx(&rect, style, hasMenu, exStyle);
 
         static constexpr const auto title =
             L"Duplicate Desktop Presenter (Double Click to toggle "
             L"fullscreen)";
-        auto size = rectSize(rect);
-        auto parentWindow = HWND{};
-        auto menu = HMENU{};
-        auto customParam = this;
-        auto window = CreateWindowExW(
+        const auto size = rectSize(rect);
+        const auto customParam = this;
+        const auto window = CreateWindowExW(
             exStyle,
             WINDOM_CLASS_NAME,
             title,
@@ -517,8 +522,8 @@ struct internal : capture_thread::callbacks {
             rect.top,
             size.cx,
             size.cy,
-            parentWindow,
-            menu,
+            HWND{},
+            HMENU{},
             instanceHandle,
             customParam);
         if (!window) throw Unexpected{"Window creation failed"};
@@ -543,12 +548,12 @@ struct internal : capture_thread::callbacks {
             std::get<1>(*args), std::get<2>(*args), std::get<3>(*args));
     }
     static void CALLBACK
-    retryDuplicationAPC(LPVOID parameter, DWORD dwTimerLowValue, DWORD dwTimerHighValue) {
+    retryDuplicationAPC(LPVOID parameter, DWORD dwTimerLowValue, DWORD dwTimerHighValue) noexcept {
         auto self = static_cast<internal *>(parameter);
         self->canStartDuplication_m = true;
     }
     static void CALLBACK
-    awaitFrameAPC(LPVOID parameter, DWORD dwTimerLowValue, DWORD dwTimerHighValue) {
+    awaitFrameAPC(LPVOID parameter, DWORD dwTimerLowValue, DWORD dwTimerHighValue) noexcept {
         auto self = static_cast<internal *>(parameter);
         self->waitFrame_m = false;
     }
@@ -589,14 +594,6 @@ struct internal : capture_thread::callbacks {
             OutputDebugStringA("\n");
             return -1;
         }
-    }
-
-    HANDLE createPowerRequest() {
-        REASON_CONTEXT reason;
-        reason.Version = POWER_REQUEST_CONTEXT_VERSION;
-        reason.Flags = POWER_REQUEST_CONTEXT_SIMPLE_STRING;
-        reason.Reason.SimpleReasonString = const_cast<wchar_t *>(L"Desktop Duplication Tool");
-        return PowerCreateRequest(&reason);
     }
 
     int mainLoop() {
@@ -650,7 +647,7 @@ struct internal : capture_thread::callbacks {
             auto dimensions = renderer::getDimensionData(device, config_m.displays);
 
             target_m = renderer::createSharedTexture(device, rectSize(dimensions.rect));
-            windowRenderer_m.init([&] {
+            windowRenderer_m.init([&]() noexcept {
                 auto args = window_renderer::init_args{};
                 args.windowHandle = windowHandle_m;
                 args.texture = target_m;
@@ -763,13 +760,18 @@ struct internal : capture_thread::callbacks {
     void sleep(unsigned int timeout = INFINITE) {
         const auto wake_mask = QS_ALLINPUT;
         const auto flags = MWMO_ALERTABLE | MWMO_INPUTAVAILABLE;
+        const auto handle_count = handles_m.size();
         const auto awoken = MsgWaitForMultipleObjectsEx(
-            static_cast<uint32_t>(handles_m.size()), handles_m.data(), timeout, wake_mask, flags);
+            reinterpret_cast<const uint32_t &>(handle_count),
+            handles_m.data(),
+            timeout,
+            wake_mask,
+            flags);
         if (WAIT_FAILED == awoken) throw Unexpected{"Application Waiting failed"};
-        if (WAIT_OBJECT_0 == awoken - handles_m.size()) processMessages();
+        if (WAIT_OBJECT_0 == awoken - handle_count) processMessages();
     }
 
-    void processMessages() {
+    void processMessages() noexcept {
         while (true) {
             auto message = MSG{};
             const auto success = PeekMessage(&message, nullptr, 0, 0, PM_REMOVE);
@@ -778,7 +780,7 @@ struct internal : capture_thread::callbacks {
             DispatchMessage(&message);
             if (WM_QUIT == message.message) {
                 keepRunning_m = false;
-                returnValue_m = static_cast<int>(message.wParam);
+                returnValue_m = reinterpret_cast<int &>(message.wParam);
             }
         }
     }
@@ -789,7 +791,7 @@ struct internal : capture_thread::callbacks {
         std::rethrow_exception(error_m);
     }
 
-    void updateError(std::exception_ptr &exception) {
+    void updateError(const std::exception_ptr &exception) noexcept {
         error_m = exception;
         hasError_m = true;
     }
@@ -845,26 +847,33 @@ struct application::internal : ::internal {
 };
 
 application::application(config &&cfg)
-    : ip(new internal(std::move(cfg))) {}
+#pragma warning(disable : 26409) // make_unique allows no custom deleter
+    : ip(new internal(std::move(cfg))) {
+}
 
 int application::run() { return ip->run(); }
 
-void capture_thread::callbacks::setError(std::exception_ptr error) {
-    auto self = reinterpret_cast<internal *>(this);
-    auto parameter = make_tuple_ptr(self, error);
-    const auto success = QueueUserAPC(
-        internal::setErrorAPC, self->threadHandle_m, reinterpret_cast<ULONG_PTR>(parameter));
-    if (!success) throw Unexpected{"api::setError failed to queue APC"};
-}
+[[gsl::suppress(26462)]] // type is not expressable
+    void
+    capture_thread::callbacks::setError(std::exception_ptr error) {
+        auto self = reinterpret_cast<internal *>(this);
 
-void capture_thread::callbacks::setFrame(
-    captured_update &&frame, const frame_context &context, size_t thread_index) {
+        const auto parameter = make_tuple_ptr(self, error);
+        const auto success = QueueUserAPC(
+            internal::setErrorAPC, self->threadHandle_m, reinterpret_cast<ULONG_PTR>(parameter));
+        if (!success) throw Unexpected{"api::setError failed to queue APC"};
+    }
+
+        [[gsl::suppress(26462)]] // type is not expressable
+    void capture_thread::callbacks::setFrame(
+        captured_update &&frame, const frame_context &context, size_t thread_index) {
 
     auto self = reinterpret_cast<internal *>(this);
-    auto parameter = make_tuple_ptr(self, std::move(frame), std::ref(context), thread_index);
+
+    const auto parameter = make_tuple_ptr(self, std::move(frame), std::ref(context), thread_index);
     const auto success = QueueUserAPC(
         internal::setFrameAPC, self->threadHandle_m, reinterpret_cast<ULONG_PTR>(parameter));
     if (!success) throw Unexpected{"api::setError failed to queue APC"};
 }
 
-void application::internal_deleter::operator()(internal *ptr) { delete ptr; }
+void application::internal_deleter::operator()(internal *ptr) noexcept { delete ptr; }

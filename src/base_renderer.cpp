@@ -27,7 +27,7 @@ base_renderer::~base_renderer() {
 }
 
 ComPtr<ID3D11ShaderResourceView>
-base_renderer::createShaderTexture(ID3D11Texture2D *texture) const {
+base_renderer::createShaderTexture(gsl::not_null<ID3D11Texture2D *> texture) const {
     D3D11_TEXTURE2D_DESC description;
     texture->GetDesc(&description);
 
@@ -38,7 +38,7 @@ base_renderer::createShaderTexture(ID3D11Texture2D *texture) const {
     shader_resource_description.Texture2D.MipLevels = description.MipLevels;
 
     ComPtr<ID3D11ShaderResourceView> shader_resource;
-    auto result =
+    const auto result =
         device_m->CreateShaderResourceView(texture, &shader_resource_description, &shader_resource);
     if (IS_ERROR(result)) throw error{result, "Failed to create texture resource"};
     return shader_resource;
@@ -55,7 +55,7 @@ ComPtr<ID3D11SamplerState> base_renderer::createLinearSampler() {
     descrption.MinLOD = 0;
     descrption.MaxLOD = D3D11_FLOAT32_MAX;
     ComPtr<ID3D11SamplerState> sampler;
-    auto result = device_m->CreateSamplerState(&descrption, &sampler);
+    const auto result = device_m->CreateSamplerState(&descrption, &sampler);
     if (IS_ERROR(result)) throw error{result, "Failed to create linear sampler state"};
     return sampler;
 }
@@ -70,7 +70,7 @@ void base_renderer::createDiscreteSamplerState() {
     descrption.ComparisonFunc = D3D11_COMPARISON_NEVER;
     descrption.MinLOD = 0;
     descrption.MaxLOD = D3D11_FLOAT32_MAX;
-    auto result = device_m->CreateSamplerState(&descrption, &discreteSamplerState_m);
+    const auto result = device_m->CreateSamplerState(&descrption, &discreteSamplerState_m);
     if (IS_ERROR(result)) throw error{result, "Failed to create discrete sampler state"};
 }
 
@@ -101,8 +101,13 @@ void base_renderer::createVertexShader() {
             "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
         D3D11_INPUT_ELEMENT_DESC{
             "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 8, D3D11_INPUT_PER_VERTEX_DATA, 0});
+    const auto layout_size = layout.size();
     result = device_m->CreateInputLayout(
-        layout.data(), static_cast<uint32_t>(layout.size()), shader, size, &inputLayout_m);
+        layout.data(),
+        reinterpret_cast<const uint32_t &>(layout_size),
+        shader,
+        size,
+        &inputLayout_m);
     if (IS_ERROR(result)) throw error{result, "Failed to create input layout"};
 }
 
