@@ -853,21 +853,21 @@ application::application(config &&cfg)
 
 int application::run() { return ip->run(); }
 
-[[gsl::suppress(26462)]] // type is not expressable
-    void
-    capture_thread::callbacks::setError(std::exception_ptr error) {
-        auto self = reinterpret_cast<internal *>(this);
+void capture_thread::callbacks::setError(std::exception_ptr error) //
+    [[gsl::suppress(26462)]] // type is not expressable
+{
+    auto self = reinterpret_cast<internal *>(this);
 
-        const auto parameter = make_tuple_ptr(self, error);
-        const auto success = QueueUserAPC(
-            internal::setErrorAPC, self->threadHandle_m, reinterpret_cast<ULONG_PTR>(parameter));
-        if (!success) throw Unexpected{"api::setError failed to queue APC"};
-    }
+    const auto parameter = make_tuple_ptr(self, error);
+    const auto success = QueueUserAPC(
+        internal::setErrorAPC, self->threadHandle_m, reinterpret_cast<ULONG_PTR>(parameter));
+    if (!success) throw Unexpected{"api::setError failed to queue APC"};
+}
 
-        [[gsl::suppress(26462)]] // type is not expressable
-    void capture_thread::callbacks::setFrame(
-        captured_update &&frame, const frame_context &context, size_t thread_index) {
-
+void capture_thread::callbacks::setFrame(
+    captured_update &&frame, const frame_context &context, size_t thread_index) //
+    [[gsl::suppress(26462)]] // type is not expressable
+{
     auto self = reinterpret_cast<internal *>(this);
 
     const auto parameter = make_tuple_ptr(self, std::move(frame), std::ref(context), thread_index);
