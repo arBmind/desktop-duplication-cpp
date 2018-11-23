@@ -69,7 +69,7 @@ Read the LICENSE file!
 
 If you have issues or questions feel free to open a ticket.
 
-If you can answer a question in a ticket, help is appriciated.
+If you can answer a question in a ticket, help is appreciated.
 
 If you like the tool, leave a star on Github and spread the love.
 
