@@ -1,18 +1,19 @@
-#include "frame_updater.h"
+#include "FrameUpdater.h"
 
 #include "renderer.h"
 
-#include "captured_update.h"
-#include "frame_context.h"
+#include "CapturedUpdate.h"
+#include "FrameContext.h"
 #include <gsl.h>
 
 namespace {
-RECT rectMoveTo(const RECT &rect, const POINT &p) noexcept {
+
+auto rectMoveTo(const RECT &rect, const POINT &p) noexcept -> RECT {
     const auto size = rectSize(rect);
     return RECT{p.x, p.y, p.x + size.cx, p.y + size.cy};
 }
 
-RECT rotate(const RECT &rect, DXGI_MODE_ROTATION rotation, const SIZE &size) noexcept {
+auto rotate(const RECT &rect, DXGI_MODE_ROTATION rotation, const SIZE &size) noexcept -> RECT {
     switch (rotation) {
     case DXGI_MODE_ROTATION_UNSPECIFIED:
     case DXGI_MODE_ROTATION_IDENTITY: return rect;
@@ -26,17 +27,18 @@ RECT rotate(const RECT &rect, DXGI_MODE_ROTATION rotation, const SIZE &size) noe
     default: return {0, 0, 0, 0};
     }
 }
+
 } // namespace
 
-frame_updater::frame_updater(init_args &&args)
+FrameUpdater::FrameUpdater(InitArgs &&args)
     : dx_m(std::move(args)) {}
 
-void frame_updater::update(const frame_update &data, const frame_context &context) {
+void FrameUpdater::update(const FrameUpdate &data, const FrameContext &context) {
     performMoves(data, context);
     updateDirty(data, context);
 }
 
-void frame_updater::performMoves(const frame_update &data, const frame_context &context) {
+void FrameUpdater::performMoves(const FrameUpdate &data, const FrameContext &context) {
     const auto moved = data.moved();
     if (moved.empty()) return;
 
@@ -96,7 +98,7 @@ void frame_updater::performMoves(const frame_update &data, const frame_context &
     }
 }
 
-void frame_updater::updateDirty(const frame_update &data, const frame_context &context) {
+void FrameUpdater::updateDirty(const FrameUpdate &data, const FrameContext &context) {
     auto dirts = data.dirty();
     if (dirts.empty()) return;
 
@@ -120,10 +122,11 @@ void frame_updater::updateDirty(const frame_update &data, const frame_context &c
     const auto center_y = gsl::narrow_cast<long>(target_description.Height) / 2;
 
     const auto make_vertex = [&](int x, int y) {
-        return vertex{(x + target_x - center_x) / static_cast<float>(center_x),
-                      -1 * (y + target_y - center_y) / static_cast<float>(center_y),
-                      x / static_cast<float>(desktop_description.Width),
-                      y / static_cast<float>(desktop_description.Height)};
+        return Vertex{
+            (x + target_x - center_x) / static_cast<float>(center_x),
+            -1 * (y + target_y - center_y) / static_cast<float>(center_y),
+            x / static_cast<float>(desktop_description.Width),
+            y / static_cast<float>(desktop_description.Height)};
     };
 
     dirtyQuads_m.reserve(dirts.size());
@@ -145,8 +148,8 @@ void frame_updater::updateDirty(const frame_update &data, const frame_context &c
     D3D11_BUFFER_DESC buffer_description;
     RtlZeroMemory(&buffer_description, sizeof(buffer_description));
     buffer_description.Usage = D3D11_USAGE_DEFAULT;
-    [[gsl::suppress(26472)]] // conversion required because of APIs
-        buffer_description.ByteWidth = static_cast<uint32_t>(sizeof(quad_vertices) * dirts.size());
+    [[gsl::suppress("26472")]] // conversion required because of APIs
+    buffer_description.ByteWidth = static_cast<uint32_t>(sizeof(quad_vertices) * dirts.size());
     buffer_description.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     buffer_description.CPUAccessFlags = 0;
 
@@ -159,7 +162,7 @@ void frame_updater::updateDirty(const frame_update &data, const frame_context &c
         dx_m.device()->CreateBuffer(&buffer_description, &init_data, &vertex_buffer);
     if (IS_ERROR(result)) throw RenderFailure(result, "Failed to create dirty vertex buffer");
 
-    const uint32_t stride = sizeof(vertex);
+    const uint32_t stride = sizeof(Vertex);
     const uint32_t offset = 0;
     dx_m.deviceContext()->IASetVertexBuffers(0, 1, vertex_buffer.GetAddressOf(), &stride, &offset);
 
@@ -172,17 +175,17 @@ void frame_updater::updateDirty(const frame_update &data, const frame_context &c
     view_port.TopLeftY = 0.0f;
     dx_m.deviceContext()->RSSetViewports(1, &view_port);
 
-    [[gsl::suppress(26472)]] // conversion required because of APIs
-        dx_m.deviceContext()
-            ->Draw(static_cast<uint32_t>(6 * dirts.size()), 0);
+    [[gsl::suppress("26472")]] // conversion required because of APIs
+    dx_m.deviceContext()
+        ->Draw(static_cast<uint32_t>(6 * dirts.size()), 0);
 
     // dx_m.activateNoRenderTarget();
     ID3D11ShaderResourceView *noResource = nullptr;
     dx_m.deviceContext()->PSSetShaderResources(0, 1, &noResource);
 }
 
-frame_updater::resources::resources(frame_updater::init_args &&args)
-    : base_renderer(std::move(args)) {
+FrameUpdater::Resources::Resources(FrameUpdater::InitArgs &&args)
+    : BaseRenderer(std::move(args)) {
     prepare(args.targetHandle);
 
     activateRenderTarget();
@@ -193,7 +196,7 @@ frame_updater::resources::resources(frame_updater::init_args &&args)
     activateDiscreteSampler();
 }
 
-void frame_updater::resources::prepare(HANDLE targetHandle) {
+void FrameUpdater::Resources::prepare(HANDLE targetHandle) {
     target_m = renderer::getTextureFromHandle(device(), targetHandle);
     renderTarget_m = renderer::renderToTexture(device(), target_m);
 }

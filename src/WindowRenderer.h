@@ -1,28 +1,28 @@
 #pragma once
 #include "stable.h"
 
-#include "base_renderer.h"
+#include "BaseRenderer.h"
 
-#include "meta/optional.h"
+#include <optional>
 
-struct pointer_buffer;
+struct PointerBuffer;
 
 // manages state how to render background & pointer to output window
-struct window_renderer {
-    struct init_args : base_renderer::init_args {
+struct WindowRenderer {
+    struct InitArgs : BaseRenderer::InitArgs {
         HWND windowHandle{}; // window to render to
         ComPtr<ID3D11Texture2D> texture; // texture is rendered as quad
     };
-    using vertex = base_renderer::vertex;
-    struct vec2f {
+    using Vertex = BaseRenderer::Vertex;
+    struct Vec2f {
         float x, y;
     };
 
-    void init(init_args &&args);
+    void init(InitArgs &&args);
     void reset() noexcept;
 
     float zoom() const noexcept { return zoom_m; }
-    POINT offset() const noexcept {
+    auto offset() const noexcept -> POINT {
         return {static_cast<long>(offset_m.x), static_cast<long>(offset_m.y)};
     }
 
@@ -30,21 +30,21 @@ struct window_renderer {
     void setZoom(float zoom) noexcept;
     void moveOffset(POINT delta) noexcept;
     void moveToBorder(int x, int y);
-    void moveTo(vec2f offset) noexcept;
+    void moveTo(Vec2f offset) noexcept;
 
     void render();
-    void renderPointer(const pointer_buffer &pointer);
+    void renderPointer(const PointerBuffer &pointer);
     void swap();
 
 private:
     void resizeSwapBuffer();
     void setViewPort();
-    void updatePointerShape(const pointer_buffer &pointer);
-    void updatePointerVertices(const pointer_buffer &pointer);
+    void updatePointerShape(const PointerBuffer &pointer);
+    void updatePointerVertices(const PointerBuffer &pointer);
 
 private:
     float zoom_m = 1.f;
-    vec2f offset_m = {0, 0};
+    Vec2f offset_m = {0, 0};
     SIZE size_m{};
 
     bool pendingResizeBuffers_m = false;
@@ -53,8 +53,8 @@ private:
     uint64_t lastPointerShapeUpdate_m = 0;
     uint64_t lastPointerPositionUpdate_m = 0;
 
-    struct resources : base_renderer {
-        resources(window_renderer::init_args &&args);
+    struct Resources : BaseRenderer {
+        Resources(WindowRenderer::InitArgs &&args);
 
     private:
         void createBackgroundTextureShaderResource();
@@ -67,7 +67,7 @@ private:
     public:
         void createRenderTarget();
 
-        void clearRenderTarget(const color &c) {
+        void clearRenderTarget(const Color &c) {
             deviceContext()->ClearRenderTargetView(renderTarget_m.Get(), c.data());
         }
         void activateRenderTarget() {
@@ -79,7 +79,7 @@ private:
                 0, 1, backgroundTextureShaderResource_m.GetAddressOf());
         }
         void activateBackgroundVertexBuffer() {
-            const uint32_t stride = sizeof(vertex);
+            const uint32_t stride = sizeof(Vertex);
             const uint32_t offset = 0;
             deviceContext()->IASetVertexBuffers(
                 0, 1, backgroundVertexBuffer_m.GetAddressOf(), &stride, &offset);
@@ -96,7 +96,7 @@ private:
             deviceContext()->PSSetSamplers(index, 1, linearSamplerState_m.GetAddressOf());
         }
         void activatePointerVertexBuffer() {
-            const uint32_t stride = sizeof(vertex);
+            const uint32_t stride = sizeof(Vertex);
             const uint32_t offset = 0;
             deviceContext()->IASetVertexBuffers(
                 0, 1, pointerVertexBuffer_m.GetAddressOf(), &stride, &offset);
@@ -115,5 +115,5 @@ private:
         ComPtr<ID3D11Buffer> pointerVertexBuffer_m;
     };
 
-    meta::optional<resources> dx_m;
+    std::optional<Resources> dx_m;
 };

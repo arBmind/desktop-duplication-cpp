@@ -11,39 +11,41 @@ inline auto rectSize(const RECT &rect) noexcept -> SIZE {
 
 namespace renderer {
 
-struct error {
+struct Error {
     HRESULT result;
     const char *message;
 };
 
-struct device_data {
+struct DeviceData {
     ComPtr<ID3D11Device> device;
     ComPtr<ID3D11DeviceContext> deviceContext;
     D3D_FEATURE_LEVEL selectedFeatureLevel{};
 };
-device_data createDevice();
+auto createDevice() -> DeviceData;
 
-ComPtr<IDXGIFactory2> getFactory(const ComPtr<ID3D11Device> &device);
+auto getFactory(const ComPtr<ID3D11Device> &device) -> ComPtr<IDXGIFactory2>;
 
-ComPtr<IDXGISwapChain1> createSwapChain(
-    const ComPtr<IDXGIFactory2> &factory, const ComPtr<ID3D11Device> &device, HWND window);
+auto createSwapChain(
+    const ComPtr<IDXGIFactory2> &factory, const ComPtr<ID3D11Device> &device, HWND window)
+    -> ComPtr<IDXGISwapChain1>;
 
-struct dimension_data {
+struct DimensionData {
     RECT rect{};
     std::vector<int> used_displays;
 };
 
-dimension_data
-getDimensionData(const ComPtr<ID3D11Device> &device, const std::vector<int> displays);
+auto getDimensionData(const ComPtr<ID3D11Device> &device, const std::vector<int> displays)
+    -> DimensionData;
 
-ComPtr<ID3D11Texture2D> createTexture(const ComPtr<ID3D11Device> &device, SIZE size);
-ComPtr<ID3D11Texture2D> createSharedTexture(const ComPtr<ID3D11Device> &device, SIZE size);
+auto createTexture(const ComPtr<ID3D11Device> &device, SIZE size) -> ComPtr<ID3D11Texture2D>;
+auto createSharedTexture(const ComPtr<ID3D11Device> &device, SIZE size) -> ComPtr<ID3D11Texture2D>;
 
 // note: Do N-O-T close this handle!
-HANDLE getSharedHandle(const ComPtr<ID3D11Texture2D> &texture);
-ComPtr<ID3D11Texture2D> getTextureFromHandle(const ComPtr<ID3D11Device> &device, HANDLE handle);
+auto getSharedHandle(const ComPtr<ID3D11Texture2D> &texture) -> HANDLE;
+auto getTextureFromHandle(const ComPtr<ID3D11Device> &device, HANDLE handle)
+    -> ComPtr<ID3D11Texture2D>;
 
-ComPtr<ID3D11RenderTargetView>
-renderToTexture(const ComPtr<ID3D11Device> &device, const ComPtr<ID3D11Texture2D> &texture);
+auto renderToTexture(const ComPtr<ID3D11Device> &device, const ComPtr<ID3D11Texture2D> &texture)
+    -> ComPtr<ID3D11RenderTargetView>;
 
 } // namespace renderer

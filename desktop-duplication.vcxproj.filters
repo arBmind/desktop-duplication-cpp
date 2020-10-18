@@ -15,38 +15,35 @@
     <ClCompile Include="src\application.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\base_renderer.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="src\capture_thread.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="src\frame_updater.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
     <ClCompile Include="src\main.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="src\pointer_updater.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\renderer.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\window_renderer.cpp">
+    <ClCompile Include="src\win32\PowerRequest.cpp">
+      <Filter>src\win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\TaskbarList.cpp">
+      <Filter>src\win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\BaseRenderer.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\win32\power_request.cpp">
-      <Filter>src\win32</Filter>
+    <ClCompile Include="src\CaptureThread.cpp">
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\win32\taskbar_list.cpp">
-      <Filter>src\win32</Filter>
+    <ClCompile Include="src\FrameUpdater.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\PointerUpdater.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\WindowRenderer.cpp">
+      <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\meta\array.h">
-      <Filter>src\meta</Filter>
-    </ClInclude>
     <ClInclude Include="src\meta\array_view.h">
       <Filter>src\meta</Filter>
     </ClInclude>
@@ -56,43 +53,13 @@
     <ClInclude Include="src\meta\flags.h">
       <Filter>src\meta</Filter>
     </ClInclude>
-    <ClInclude Include="src\meta\result.h">
-      <Filter>src\meta</Filter>
-    </ClInclude>
     <ClInclude Include="src\meta\tuple.h">
       <Filter>src\meta</Filter>
     </ClInclude>
     <ClInclude Include="src\meta\scope_guard.h">
       <Filter>src\meta</Filter>
     </ClInclude>
-    <ClInclude Include="src\meta\opaque_value.h">
-      <Filter>src\meta</Filter>
-    </ClInclude>
-    <ClInclude Include="src\meta\string_view.h">
-      <Filter>src\meta</Filter>
-    </ClInclude>
-    <ClInclude Include="src\meta\optional.h">
-      <Filter>src\meta</Filter>
-    </ClInclude>
     <ClInclude Include="src\application.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\base_renderer.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\capture_thread.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\captured_update.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\frame_context.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\frame_updater.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\pointer_updater.h">
       <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="src\renderer.h">
@@ -101,17 +68,35 @@
     <ClInclude Include="src\stable.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="src\window_renderer.h">
-      <Filter>src</Filter>
-    </ClInclude>
     <ClInclude Include="resource.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="src\win32\power_request.h">
+    <ClInclude Include="src\win32\PowerRequest.h">
       <Filter>src\win32</Filter>
     </ClInclude>
-    <ClInclude Include="src\win32\taskbar_list.h">
+    <ClInclude Include="src\win32\TaskbarList.h">
       <Filter>src\win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\BaseRenderer.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\CapturedUpdate.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\CaptureThread.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\FrameContext.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\FrameUpdater.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\PointerUpdater.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\WindowRenderer.h">
+      <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

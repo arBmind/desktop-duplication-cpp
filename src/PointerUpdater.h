@@ -3,10 +3,10 @@
 
 #include <vector>
 
-struct pointer_update;
-struct frame_context;
+struct PointerUpdate;
+struct FrameContext;
 
-struct pointer_buffer {
+struct PointerBuffer {
     int64_t position_timestamp = 0; // timestamp of the last postition & visible update
     POINT position{};
     bool visible = false;
@@ -16,12 +16,12 @@ struct pointer_buffer {
     std::vector<uint8_t> shape_data; // buffer for with shape texture
 };
 
-struct pointer_updater {
-    void update(pointer_update &update, const frame_context &context);
+struct PointerUpdater {
+    void update(PointerUpdate &update, const FrameContext &context);
 
-    const pointer_buffer &data() const noexcept { return pointer_m; }
+    const PointerBuffer &data() const noexcept { return pointer_m; }
 
 private:
     RECT pointer_desktop_m = {0, 0, 0, 0};
-    pointer_buffer pointer_m;
+    PointerBuffer pointer_m;
 };

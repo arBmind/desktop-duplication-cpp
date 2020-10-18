@@ -1,12 +1,12 @@
-#include "pointer_updater.h"
+#include "PointerUpdater.h"
 
-#include "captured_update.h"
-#include "frame_context.h"
+#include "CapturedUpdate.h"
+#include "FrameContext.h"
 
 #include <algorithm>
 #include <utility>
 
-void pointer_updater::update(pointer_update &update, const frame_context &context) {
+void PointerUpdater::update(PointerUpdate &update, const FrameContext &context) {
     if (update.update_time == 0) return;
     if (pointer_desktop_m == context.output_desc.DesktopCoordinates //
         || (update.position.Visible &&

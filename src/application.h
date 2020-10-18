@@ -4,8 +4,8 @@
 #include <memory> // unique_ptr
 #include <vector>
 
-struct application {
-    struct config {
+struct Application {
+    struct Config {
         HINSTANCE instanceHandle;
         bool showCommand;
 
@@ -14,14 +14,15 @@ struct application {
         // RECT rect;
     };
 
-    application(config &&cfg);
+    Application(Config);
 
     int run();
 
 private:
-    struct internal;
-    struct internal_deleter {
-        void operator()(internal *) noexcept;
+    struct Impl;
+    struct ImplDeleter {
+        void operator()(Impl *) noexcept;
     };
-    std::unique_ptr<internal, internal_deleter> ip;
+    using ImplPtr = std::unique_ptr<Impl, ImplDeleter>;
+    ImplPtr m;
 };

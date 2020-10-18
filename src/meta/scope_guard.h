@@ -2,16 +2,14 @@
 
 template<class T>
 struct scope_guard {
-    using this_t = scope_guard;
-
     scope_guard(T &&f) noexcept
         : t((T &&) f) {}
     ~scope_guard() noexcept { t(); }
 
-    scope_guard(const this_t &) = delete;
-    auto operator=(const this_t &) -> this_t & = delete;
-    scope_guard(this_t &&) = default;
-    auto operator=(this_t &&) -> this_t & = default;
+    scope_guard(const scope_guard &) = delete;
+    auto operator=(const scope_guard &) -> scope_guard & = delete;
+    scope_guard(scope_guard &&) = default;
+    auto operator=(scope_guard &&) -> scope_guard & = default;
 
 private:
     T t;

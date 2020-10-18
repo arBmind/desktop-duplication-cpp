@@ -1,7 +1,7 @@
 #pragma once
 #include "stable.h"
 
-#include "frame_context.h"
+#include "FrameContext.h"
 
 #include <meta/comptr.h>
 #include <meta/tuple.h>
@@ -10,7 +10,7 @@
 #include <thread>
 #include <vector>
 
-struct captured_update;
+struct CapturedUpdate;
 
 struct Unexpected {
     const char *text{};
@@ -23,27 +23,27 @@ struct Expected {
 /// returns the global thread handle (usable in any thread!)
 HANDLE GetCurrentThreadHandle();
 
-struct capture_thread {
-    struct callbacks { // not implemented here! (see application.cpp)
-        void setError(std::exception_ptr error);
-        void setFrame(captured_update &&frame, const frame_context &context, size_t thread_index);
+struct CaptureThread {
+    struct Callbacks { // not implemented here! (see application.cpp)
+        void setError(std::exception_ptr Error);
+        void setFrame(CapturedUpdate &&frame, const FrameContext &context, size_t thread_index);
     };
-    struct init_args {
-        callbacks *callbacks{}; // callbacks
+    struct InitArgs {
+        Callbacks *callbacks{}; // callbacks
         int display{}; // index of the display to capture
         size_t threadIndex{}; // identifier to this thread
     };
-    struct start_args {
+    struct StartArgs {
         ComPtr<ID3D11Device> device; // device used for capturing
         POINT offset{}; // offset from desktop to target coordinates
     };
 
-    capture_thread(init_args &&args) noexcept
+    CaptureThread(InitArgs &&args) noexcept
         : callbacks_m(args.callbacks)
         , display_m(args.display)
         , index_m(args.threadIndex) {}
 
-    std::thread start(start_args &&args); // start a stopped thread
+    [[nodiscard]] auto start(StartArgs &&args) -> std::thread; // start a stopped thread
 
     void next(); // thread starts to capture the next frame
     void stop(); // signal thread to stop, use join to wait!
@@ -58,13 +58,13 @@ private:
     void
     handleDeviceError(const char *text, HRESULT result, std::initializer_list<HRESULT> expected);
 
-    std::optional<captured_update> captureUpdate();
+    auto captureUpdate() -> std::optional<CapturedUpdate>;
 
 private:
-    callbacks *callbacks_m;
+    Callbacks *callbacks_m;
     int display_m;
     size_t index_m;
-    frame_context context_m{};
+    FrameContext context_m{};
     ComPtr<ID3D11Device> device_m;
     HANDLE threadHandle_m{};
     bool keepRunning_m = true;

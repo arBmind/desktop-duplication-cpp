@@ -20,8 +20,8 @@ struct array_view {
         return array_view(reinterpret_cast<T *>(data), bytes / sizeof(T));
     }
     static array_view from_bytes(const uint8_t *data, size_t bytes) noexcept {
-        [[gsl::suppress(26490)]] // required by definition
-            return array_view(reinterpret_cast<T *>(data), bytes / sizeof(T));
+        [[gsl::suppress("26490")]] // required by definition
+        return array_view(reinterpret_cast<T *>(data), bytes / sizeof(T));
     }
 
     constexpr size_t size() const noexcept { return size_m; }

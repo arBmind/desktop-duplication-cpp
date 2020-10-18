@@ -2,36 +2,37 @@
 #include "stable.h"
 
 #include "meta/comptr.h"
+
 #include <array>
 #include <cinttypes>
 #include <gsl.h>
 
 // shared between frame updater & window renderer
-struct base_renderer {
-    struct init_args {
+struct BaseRenderer {
+    struct InitArgs {
         ComPtr<ID3D11Device> device;
         ComPtr<ID3D11DeviceContext> deviceContext;
     };
-    struct vertex {
+    struct Vertex {
         float x, y, u, v;
     };
-    using color = std::array<float, 4>;
+    using Color = std::array<float, 4>;
 
-    base_renderer(init_args &&args);
-    ~base_renderer();
+    BaseRenderer(InitArgs &&args);
+    ~BaseRenderer();
 
-    base_renderer() = default;
-    base_renderer(const base_renderer &) = default;
-    base_renderer(base_renderer &&) = default;
-    base_renderer &operator=(const base_renderer &) = default;
-    base_renderer &operator=(base_renderer &&) = default;
+    BaseRenderer() = default;
+    BaseRenderer(const BaseRenderer &) = default;
+    BaseRenderer(BaseRenderer &&) = default;
+    BaseRenderer &operator=(const BaseRenderer &) = default;
+    BaseRenderer &operator=(BaseRenderer &&) = default;
 
-    ComPtr<ID3D11ShaderResourceView>
-    createShaderTexture(gsl::not_null<ID3D11Texture2D *> texture) const;
-    ComPtr<ID3D11SamplerState> createLinearSampler();
+    auto createShaderTexture(gsl::not_null<ID3D11Texture2D *> texture) const
+        -> ComPtr<ID3D11ShaderResourceView>;
+    auto createLinearSampler() -> ComPtr<ID3D11SamplerState>;
 
-    ID3D11Device *device() const noexcept { return device_m.Get(); }
-    ID3D11DeviceContext *deviceContext() const noexcept { return deviceContext_m.Get(); }
+    auto device() const noexcept -> ID3D11Device * { return device_m.Get(); }
+    auto deviceContext() const noexcept -> ID3D11DeviceContext * { return deviceContext_m.Get(); }
 
     void activateNoRenderTarget() const {
         deviceContext_m->OMSetRenderTargets(0, nullptr, nullptr);
@@ -42,12 +43,12 @@ struct base_renderer {
     }
 
     void activateAlphaBlendState() const {
-        const color blendFactor{{0.f, 0.f, 0.f, 0.f}};
+        const Color blendFactor{{0.f, 0.f, 0.f, 0.f}};
         const uint32_t sampleMask = 0xffffffff;
         deviceContext_m->OMSetBlendState(alphaBlendState_m.Get(), blendFactor.data(), sampleMask);
     }
     void activateNoBlendState() const {
-        const color blendFactor{{0.f, 0.f, 0.f, 0.f}};
+        const Color blendFactor{{0.f, 0.f, 0.f, 0.f}};
         const uint32_t sampleMask = 0xffffffff;
         deviceContext_m->OMSetBlendState(nullptr, blendFactor.data(), sampleMask);
     }

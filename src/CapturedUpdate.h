@@ -9,7 +9,7 @@
 using moved_view = array_view<const DXGI_OUTDUPL_MOVE_RECT>;
 using dirty_view = array_view<const RECT>;
 
-struct frame_update {
+struct FrameUpdate {
     int64_t present_time{};
     uint32_t frames{};
     bool rects_coalesced{};
@@ -21,14 +21,16 @@ struct frame_update {
     uint32_t moved_bytes{};
     uint32_t dirty_bytes{};
 
-    moved_view moved() const noexcept { return moved_view::from_bytes(buffer.data(), moved_bytes); }
-    dirty_view dirty() const noexcept {
+    auto moved() const noexcept -> moved_view {
+        return moved_view::from_bytes(buffer.data(), moved_bytes);
+    }
+    auto dirty() const noexcept -> dirty_view {
 #pragma warning(suppress : 26481)
         return dirty_view::from_bytes(buffer.data() + moved_bytes, dirty_bytes);
     }
 };
 
-struct pointer_update {
+struct PointerUpdate {
     int64_t update_time{};
     DXGI_OUTDUPL_POINTER_POSITION position{};
 
@@ -36,7 +38,7 @@ struct pointer_update {
     std::vector<uint8_t> shape_buffer; // managed buffer for new cursor shape
 };
 
-struct captured_update {
-    frame_update frame;
-    pointer_update pointer;
+struct CapturedUpdate {
+    FrameUpdate frame;
+    PointerUpdate pointer;
 };

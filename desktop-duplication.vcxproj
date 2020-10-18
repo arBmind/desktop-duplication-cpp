@@ -232,38 +232,33 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\application.cpp" />
-    <ClCompile Include="src\base_renderer.cpp" />
-    <ClCompile Include="src\capture_thread.cpp" />
-    <ClCompile Include="src\frame_updater.cpp" />
+    <ClCompile Include="src\BaseRenderer.cpp" />
+    <ClCompile Include="src\CaptureThread.cpp" />
+    <ClCompile Include="src\FrameUpdater.cpp" />
     <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\pointer_updater.cpp" />
+    <ClCompile Include="src\PointerUpdater.cpp" />
     <ClCompile Include="src\renderer.cpp" />
-    <ClCompile Include="src\win32\power_request.cpp" />
-    <ClCompile Include="src\win32\taskbar_list.cpp" />
-    <ClCompile Include="src\window_renderer.cpp" />
+    <ClCompile Include="src\win32\PowerRequest.cpp" />
+    <ClCompile Include="src\win32\TaskbarList.cpp" />
+    <ClCompile Include="src\WindowRenderer.cpp" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="src\application.h" />
-    <ClInclude Include="src\base_renderer.h" />
-    <ClInclude Include="src\captured_update.h" />
-    <ClInclude Include="src\capture_thread.h" />
-    <ClInclude Include="src\frame_context.h" />
-    <ClInclude Include="src\frame_updater.h" />
-    <ClInclude Include="src\meta\array.h" />
+    <ClInclude Include="src\BaseRenderer.h" />
+    <ClInclude Include="src\CapturedUpdate.h" />
+    <ClInclude Include="src\CaptureThread.h" />
+    <ClInclude Include="src\FrameContext.h" />
+    <ClInclude Include="src\FrameUpdater.h" />
     <ClInclude Include="src\meta\array_view.h" />
     <ClInclude Include="src\meta\comptr.h" />
     <ClInclude Include="src\meta\flags.h" />
-    <ClInclude Include="src\meta\opaque_value.h" />
-    <ClInclude Include="src\meta\optional.h" />
-    <ClInclude Include="src\meta\result.h" />
     <ClInclude Include="src\meta\scope_guard.h" />
-    <ClInclude Include="src\meta\string_view.h" />
     <ClInclude Include="src\meta\tuple.h" />
-    <ClInclude Include="src\pointer_updater.h" />
+    <ClInclude Include="src\PointerUpdater.h" />
     <ClInclude Include="src\renderer.h" />
     <ClInclude Include="src\stable.h" />
-    <ClInclude Include="src\win32\power_request.h" />
-    <ClInclude Include="src\win32\taskbar_list.h" />
-    <ClInclude Include="src\window_renderer.h" />
+    <ClInclude Include="src\win32\PowerRequest.h" />
+    <ClInclude Include="src\win32\TaskbarList.h" />
+    <ClInclude Include="src\WindowRenderer.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="src\MaskedPixelShader.hlsl">

@@ -1,14 +1,14 @@
 #include "application.h"
 
-#include "capture_thread.h"
-#include "captured_update.h"
-#include "frame_updater.h"
-#include "pointer_updater.h"
+#include "CaptureThread.h"
+#include "CapturedUpdate.h"
+#include "FrameUpdater.h"
+#include "PointerUpdater.h"
+#include "WindowRenderer.h"
 #include "renderer.h"
-#include "window_renderer.h"
 
-#include "win32/power_request.h"
-#include "win32/taskbar_list.h"
+#include "win32/PowerRequest.h"
+#include "win32/TaskbarList.h"
 
 #include "meta/scope_guard.h"
 #include "meta/tuple.h"
@@ -19,7 +19,7 @@
 namespace {
 constexpr const auto WINDOM_CLASS_NAME = L"desdup";
 
-RECT WindowWorkArea() noexcept {
+auto WindowWorkArea() noexcept -> RECT {
     RECT result;
     SystemParametersInfo(SPI_GETWORKAREA, 0, &result, 0);
     return result;
@@ -44,7 +44,7 @@ void ShowWindowBorder(HWND windowHandle, bool shown) noexcept {
 
     SetWindowLong(windowHandle, GWL_STYLE, style);
 }
-uint32_t GetModifierKeys() noexcept {
+auto GetModifierKeys() noexcept -> uint32_t {
     auto output = 0u;
     if ((GetKeyState(VK_SHIFT) & 0x8000) != 0) output |= MK_SHIFT;
     if ((GetKeyState(VK_CONTROL) & 0x8000) != 0) output |= MK_CONTROL;
@@ -54,49 +54,48 @@ uint32_t GetModifierKeys() noexcept {
 
 enum ThumbButton { Maximized, Freezed, VisibleArea };
 
-} // namespace
+struct AppImpl : CaptureThread::Callbacks {
+    using Config = Application::Config;
 
-struct internal : capture_thread::callbacks {
-    using config = application::config;
+    AppImpl(Config &&config)
+        : m_config(std::move(config))
+        , m_processId(::GetCurrentProcessId()) {}
 
-    internal(config &&cfg)
-        : config_m(std::move(cfg))
-        , processId_m(::GetCurrentProcessId()) {}
-
-    static auto extractApp(HWND window, UINT message, LPARAM lParam) {
+    static auto extractApp(HWND window, UINT message, LPARAM lParam) -> AppImpl * {
         switch (message) {
         case WM_NCCREATE: {
             auto create_struct = reinterpret_cast<LPCREATESTRUCT>(lParam);
-            const auto app = static_cast<internal *>(create_struct->lpCreateParams);
+            const auto app = static_cast<AppImpl *>(create_struct->lpCreateParams);
             SetWindowLongPtrW(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(app));
             app->handleWindowSetup(window);
             return app;
         }
         case WM_NCDESTROY: {
-            auto app = reinterpret_cast<internal *>(GetWindowLongPtr(window, GWLP_USERDATA));
+            auto app = reinterpret_cast<AppImpl *>(GetWindowLongPtr(window, GWLP_USERDATA));
             if (app && app->windowHandle_m == window) app->windowHandle_m = {};
             return app;
         }
-        default: return reinterpret_cast<internal *>(GetWindowLongPtr(window, GWLP_USERDATA));
+        default: return reinterpret_cast<AppImpl *>(GetWindowLongPtr(window, GWLP_USERDATA));
         }
     }
 
-    static LRESULT CALLBACK
-    staticWindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
+    static auto CALLBACK staticWindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
+        -> LRESULT {
         auto app = extractApp(window, message, lParam);
         if (app) return app->windowProc(window, message, wParam, lParam);
         return ::DefWindowProc(window, message, wParam, lParam);
     }
 
-    bool armed = false;
-    bool dragging = false;
-    bool freezed = false;
-    LPARAM lastpos;
+    bool m_armed = false;
+    bool m_dragging = false;
+    bool m_freezed = false;
+    LPARAM m_lastpos = {};
+
     LRESULT windowProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
         const auto fallback = [&]() noexcept {
             return ::DefWindowProc(window, message, wParam, lParam);
         };
-        if (processId_m != GetCurrentProcessId()) return fallback();
+        if (m_processId != GetCurrentProcessId()) return fallback();
 
         if (message == taskbarCreatedMessage_m) {
             createTaskbarToolbar();
@@ -134,26 +133,26 @@ struct internal : capture_thread::callbacks {
             // Offset Dragging
         case WM_LBUTTONDOWN:
             if (GET_KEYSTATE_WPARAM(wParam) == (MK_LBUTTON | MK_SHIFT)) {
-                dragging = true;
-                lastpos = lParam;
+                m_dragging = true;
+                m_lastpos = lParam;
             }
             break;
-        case WM_LBUTTONUP: dragging = false; break;
+        case WM_LBUTTONUP: m_dragging = false; break;
         case WM_MOUSEMOVE:
-            if (dragging && GET_KEYSTATE_WPARAM(wParam) == (MK_LBUTTON | MK_SHIFT)) {
+            if (m_dragging && GET_KEYSTATE_WPARAM(wParam) == (MK_LBUTTON | MK_SHIFT)) {
                 const auto delta = POINT{
-                    GET_X_LPARAM(lParam) - GET_X_LPARAM(lastpos),
-                    GET_Y_LPARAM(lParam) - GET_Y_LPARAM(lastpos)};
+                    GET_X_LPARAM(lParam) - GET_X_LPARAM(m_lastpos),
+                    GET_Y_LPARAM(lParam) - GET_Y_LPARAM(m_lastpos)};
                 moveTexture(delta);
-                lastpos = lParam;
+                m_lastpos = lParam;
             }
             break;
 
             // Fit Other Window
-        case WM_RBUTTONDBLCLK: armed ^= true; break;
+        case WM_RBUTTONDBLCLK: m_armed ^= true; break;
         case WM_KILLFOCUS:
-            if (armed) {
-                armed = false;
+            if (m_armed) {
+                m_armed = false;
                 auto other_window = GetForegroundWindow();
                 fitWindow(other_window);
             }
@@ -274,15 +273,15 @@ struct internal : capture_thread::callbacks {
     }
 
     void toggleFreezed() {
-        freezed ^= 1;
+        m_freezed ^= 1;
         if (haveTaskbar) {
             visualizeFreezed();
             taskbarList_m.updateThumbButtons();
         }
-        if (!freezed) captureNextFrame();
+        if (!m_freezed) captureNextFrame();
     }
     void visualizeFreezed() {
-        if (freezed) {
+        if (m_freezed) {
             taskbarList_m.setProgressFlags(win32::ProgressFlag::Paused);
             taskbarList_m.setProgressValue(1, 1);
             taskbarList_m.setButtonLetterIcon(1, 0xE768, RGB(100, 255, 100));
@@ -533,43 +532,43 @@ struct internal : capture_thread::callbacks {
     }
 
     static void CALLBACK setErrorAPC(ULONG_PTR parameter) {
-        auto args = unique_tuple_ptr<internal *, std::exception_ptr>(parameter);
-        std::get<internal *>(*args)->updateError(std::get<1>(*args));
+        auto args = unique_tuple_ptr<AppImpl *, std::exception_ptr>(parameter);
+        std::get<AppImpl *>(*args)->updateError(std::get<1>(*args));
     }
     static void CALLBACK setFrameAPC(ULONG_PTR parameter) {
         auto args = unique_tuple_ptr<
-            internal *,
-            captured_update,
-            std::reference_wrapper<frame_context>,
+            AppImpl *,
+            CapturedUpdate,
+            std::reference_wrapper<FrameContext>,
             size_t>(parameter);
-        std::get<internal *>(*args)->updateFrame(
+        std::get<AppImpl *>(*args)->updateFrame(
             std::get<1>(*args), std::get<2>(*args), std::get<3>(*args));
     }
     static void CALLBACK
     retryDuplicationAPC(LPVOID parameter, DWORD dwTimerLowValue, DWORD dwTimerHighValue) noexcept {
-        auto self = static_cast<internal *>(parameter);
+        auto self = static_cast<AppImpl *>(parameter);
         self->canStartDuplication_m = true;
     }
     static void CALLBACK
     awaitFrameAPC(LPVOID parameter, DWORD dwTimerLowValue, DWORD dwTimerHighValue) noexcept {
-        auto self = static_cast<internal *>(parameter);
+        auto self = static_cast<AppImpl *>(parameter);
         self->waitFrame_m = false;
     }
 
     void initCaptureThreads() {
-        for (const auto display : config_m.displays) {
-            capture_thread::init_args args;
+        for (const auto display : m_config.displays) {
+            CaptureThread::InitArgs args;
             args.callbacks = this;
             args.display = display;
             args.threadIndex = captureThreads_m.size();
-            captureThreads_m.emplace_back(std::make_unique<capture_thread>(std::move(args)));
+            captureThreads_m.emplace_back(std::make_unique<CaptureThread>(std::move(args)));
         }
-        threads_m.reserve(config_m.displays.size());
+        threads_m.reserve(m_config.displays.size());
     }
 
     int run() {
         try {
-            registerWindowClass(config_m.instanceHandle);
+            registerWindowClass(m_config.instanceHandle);
             taskbarCreatedMessage_m = RegisterWindowMessageW(L"TaskbarButtonCreated");
 
             ChangeWindowMessageFilter(taskbarCreatedMessage_m, MSGFLT_ADD);
@@ -582,7 +581,7 @@ struct internal : capture_thread::callbacks {
             frameTimer_m = CreateWaitableTimer(nullptr, false, TEXT("FrameTimer"));
             LATER(CloseHandle(frameTimer_m));
 
-            createMainWindow(config_m.instanceHandle, config_m.showCommand);
+            createMainWindow(m_config.instanceHandle, m_config.showCommand);
             initCaptureThreads();
 
             return mainLoop();
@@ -642,11 +641,11 @@ struct internal : capture_thread::callbacks {
             auto device = deviceValue.device;
             auto deviceContext = deviceValue.deviceContext;
 
-            auto dimensions = renderer::getDimensionData(device, config_m.displays);
+            auto dimensions = renderer::getDimensionData(device, m_config.displays);
 
             target_m = renderer::createSharedTexture(device, rectSize(dimensions.rect));
             windowRenderer_m.init([&]() noexcept {
-                auto args = window_renderer::init_args{};
+                auto args = WindowRenderer::InitArgs{};
                 args.windowHandle = windowHandle_m;
                 args.texture = target_m;
                 args.device = device;
@@ -659,23 +658,23 @@ struct internal : capture_thread::callbacks {
                 startCaptureThread(*capture, offset_m, handle);
             }
         }
-        catch (const renderer::error &e) {
+        catch (const renderer::Error &e) {
             throw Expected{e.message};
         }
     }
 
-    void startCaptureThread(capture_thread &capture, const POINT &offset, HANDLE targetHandle) {
+    void startCaptureThread(CaptureThread &capture, const POINT &offset, HANDLE targetHandle) {
         auto deviceValue = renderer::createDevice();
         auto device = deviceValue.device;
         auto deviceContext = deviceValue.deviceContext;
 
-        frame_updater::init_args updater_args;
+        FrameUpdater::InitArgs updater_args;
         updater_args.device = device;
         updater_args.deviceContext = deviceContext;
         updater_args.targetHandle = targetHandle;
         frameUpdaters_m.emplace_back(std::move(updater_args));
 
-        capture_thread::start_args threadArgs;
+        CaptureThread::StartArgs threadArgs;
         threadArgs.device = device;
         threadArgs.offset = offset;
         threads_m.emplace_back(capture.start(std::move(threadArgs)));
@@ -716,13 +715,13 @@ struct internal : capture_thread::callbacks {
             awaitNextFrame();
             updateVisibleArea();
         }
-        catch (const renderer::error &e) {
+        catch (const renderer::Error &e) {
             throw Expected{e.message};
         }
     }
 
     void captureNextFrame() {
-        if (freezed) return;
+        if (m_freezed) return;
         for (auto index : updatedThreads_m) captureThreads_m[index]->next();
         updatedThreads_m.clear();
     }
@@ -793,7 +792,7 @@ struct internal : capture_thread::callbacks {
         error_m = exception;
         hasError_m = true;
     }
-    void updateFrame(captured_update &update, const frame_context &context, size_t threadIndex) {
+    void updateFrame(CapturedUpdate &update, const FrameContext &context, size_t threadIndex) {
         if (!duplicationStarted_m) return;
         frameUpdaters_m[threadIndex].update(update.frame, context);
         pointerUpdater_m.update(update.pointer, context);
@@ -802,12 +801,12 @@ struct internal : capture_thread::callbacks {
     }
 
 private:
-    config config_m;
-    DWORD processId_m{};
+    Config m_config;
+    DWORD m_processId{};
     HWND windowHandle_m{};
     UINT taskbarCreatedMessage_m{};
-    win32::power_request<PowerRequestDisplayRequired, PowerRequestSystemRequired> powerRequest_m;
-    win32::taskbar_list taskbarList_m;
+    win32::PowerRequest<PowerRequestDisplayRequired, PowerRequestSystemRequired> powerRequest_m;
+    win32::TaskbarList taskbarList_m;
     HANDLE retryTimer_m{};
     HANDLE frameTimer_m{};
 
@@ -825,12 +824,12 @@ private:
     bool doRender_m = false;
 
     POINT offset_m;
-    window_renderer windowRenderer_m;
+    WindowRenderer windowRenderer_m;
     ComPtr<ID3D11Texture2D> target_m;
-    std::vector<frame_updater> frameUpdaters_m;
-    pointer_updater pointerUpdater_m;
+    std::vector<FrameUpdater> frameUpdaters_m;
+    PointerUpdater pointerUpdater_m;
 
-    using capture_thread_ptr = std::unique_ptr<capture_thread>;
+    using capture_thread_ptr = std::unique_ptr<CaptureThread>;
 
     std::vector<HANDLE> handles_m;
     std::vector<std::thread> threads_m;
@@ -840,38 +839,40 @@ private:
     HWND visibleAreaWindow_m = nullptr;
 };
 
-struct application::internal : ::internal {
-    using ::internal::internal;
+} // namespace
+
+struct Application::Impl : ::AppImpl {
+    using ::AppImpl::AppImpl;
 };
 
-application::application(config &&cfg)
+Application::Application(Config config)
 #pragma warning(disable : 26409) // make_unique allows no custom deleter
-    : ip(new internal(std::move(cfg))) {
+    : m(new Impl(std::move(config))) {
 }
 
-int application::run() { return ip->run(); }
+int Application::run() { return m->run(); }
 
-void capture_thread::callbacks::setError(std::exception_ptr error) //
-    [[gsl::suppress(26462)]] // type is not expressable
+void CaptureThread::Callbacks::setError(std::exception_ptr Error) //
+    [[gsl::suppress("26462")]] // type is not expressable
 {
-    auto self = reinterpret_cast<internal *>(this);
+    auto self = reinterpret_cast<AppImpl *>(this);
 
-    const auto parameter = make_tuple_ptr(self, error);
+    const auto parameter = make_tuple_ptr(self, Error);
     const auto success = QueueUserAPC(
-        internal::setErrorAPC, self->threadHandle_m, reinterpret_cast<ULONG_PTR>(parameter));
+        AppImpl::setErrorAPC, self->threadHandle_m, reinterpret_cast<ULONG_PTR>(parameter));
     if (!success) throw Unexpected{"api::setError failed to queue APC"};
 }
 
-void capture_thread::callbacks::setFrame(
-    captured_update &&frame, const frame_context &context, size_t thread_index) //
-    [[gsl::suppress(26462)]] // type is not expressable
+void CaptureThread::Callbacks::setFrame(
+    CapturedUpdate &&frame, const FrameContext &context, size_t thread_index) //
+    [[gsl::suppress("26462")]] // type is not expressable
 {
-    auto self = reinterpret_cast<internal *>(this);
+    auto self = reinterpret_cast<AppImpl *>(this);
 
     const auto parameter = make_tuple_ptr(self, std::move(frame), std::ref(context), thread_index);
     const auto success = QueueUserAPC(
-        internal::setFrameAPC, self->threadHandle_m, reinterpret_cast<ULONG_PTR>(parameter));
+        AppImpl::setFrameAPC, self->threadHandle_m, reinterpret_cast<ULONG_PTR>(parameter));
     if (!success) throw Unexpected{"api::setError failed to queue APC"};
 }
 
-void application::internal_deleter::operator()(internal *ptr) noexcept { delete ptr; }
+void Application::ImplDeleter::operator()(Impl *ptr) noexcept { delete ptr; }

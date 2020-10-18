@@ -1,37 +1,37 @@
 #pragma once
 #include "stable.h"
 
-#include "base_renderer.h"
+#include "BaseRenderer.h"
 
 #include <array>
 #include <meta/comptr.h>
 #include <vector>
 
-struct frame_update;
-struct frame_context;
+struct FrameUpdate;
+struct FrameContext;
 
 struct RenderFailure {
     RenderFailure(HRESULT res, const char *text) noexcept {}
 };
 
-struct frame_updater {
-    struct init_args : base_renderer::init_args {
+struct FrameUpdater {
+    struct InitArgs : BaseRenderer::InitArgs {
         HANDLE targetHandle{}; // shared texture handle that should be updated
     };
-    using vertex = base_renderer::vertex;
-    using quad_vertices = std::array<vertex, 6>;
+    using Vertex = BaseRenderer::Vertex;
+    using quad_vertices = std::array<Vertex, 6>;
 
-    frame_updater(init_args &&args);
+    FrameUpdater(InitArgs &&args);
 
-    void update(const frame_update &data, const frame_context &context);
-
-private:
-    void performMoves(const frame_update &data, const frame_context &context);
-    void updateDirty(const frame_update &data, const frame_context &context);
+    void update(const FrameUpdate &data, const FrameContext &context);
 
 private:
-    struct resources : base_renderer {
-        resources(frame_updater::init_args &&args);
+    void performMoves(const FrameUpdate &data, const FrameContext &context);
+    void updateDirty(const FrameUpdate &data, const FrameContext &context);
+
+private:
+    struct Resources : BaseRenderer {
+        Resources(FrameUpdater::InitArgs &&args);
 
         void prepare(HANDLE targetHandle);
 
@@ -44,7 +44,7 @@ private:
 
         ComPtr<ID3D11Texture2D> moveTmp_m;
     };
-    resources dx_m;
+    Resources dx_m;
 
     std::vector<quad_vertices> dirtyQuads_m;
 };

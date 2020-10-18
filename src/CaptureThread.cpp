@@ -1,9 +1,9 @@
-#include "capture_thread.h"
+#include "CaptureThread.h"
 
 #include "application.h"
 #include "renderer.h"
 
-#include "captured_update.h"
+#include "CapturedUpdate.h"
 
 #include "meta/scope_guard.h"
 #include <gsl.h>
@@ -24,7 +24,7 @@ void setDesktop() {
 
 } // namespace
 
-HANDLE GetCurrentThreadHandle() {
+auto GetCurrentThreadHandle() -> HANDLE {
     HANDLE output{};
     const auto process = GetCurrentProcess();
     const auto thread = GetCurrentThread();
@@ -37,7 +37,7 @@ HANDLE GetCurrentThreadHandle() {
     return output;
 }
 
-std::thread capture_thread::start(start_args &&args) {
+auto CaptureThread::start(StartArgs &&args) -> std::thread {
     device_m = std::move(args.device);
     context_m.offset = args.offset;
     keepRunning_m = true;
@@ -45,36 +45,32 @@ std::thread capture_thread::start(start_args &&args) {
     return std::thread([=] { run(); });
 }
 
-void WINAPI capture_thread::stopAPC(ULONG_PTR parameter) {
-    auto args = unique_tuple_ptr<capture_thread *>(parameter);
-    auto self = std::get<capture_thread *>(*args);
+void WINAPI CaptureThread::stopAPC(ULONG_PTR parameter) {
+    auto args = unique_tuple_ptr<CaptureThread *>(parameter);
+    auto self = std::get<CaptureThread *>(*args);
     self->keepRunning_m = false;
 }
 
-void capture_thread::nextAPC(ULONG_PTR parameter) {
-    auto args = unique_tuple_ptr<capture_thread *>(parameter);
-    auto self = std::get<capture_thread *>(*args);
+void CaptureThread::nextAPC(ULONG_PTR parameter) {
+    auto args = unique_tuple_ptr<CaptureThread *>(parameter);
+    auto self = std::get<CaptureThread *>(*args);
     self->dupl_m->ReleaseFrame();
     self->doCapture_m = true;
 }
 
-void capture_thread::next() {
-    [[gsl::suppress(26490)]] // bad API design
-        QueueUserAPC(
-            &capture_thread::nextAPC,
-            threadHandle_m,
-            reinterpret_cast<ULONG_PTR>(make_tuple_ptr(this)));
+void CaptureThread::next() {
+    [[gsl::suppress("26490")]] // bad API design
+    QueueUserAPC(
+        &CaptureThread::nextAPC, threadHandle_m, reinterpret_cast<ULONG_PTR>(make_tuple_ptr(this)));
 }
 
-void capture_thread::stop() {
-    [[gsl::suppress(26490)]] // bad API design
-        QueueUserAPC(
-            &capture_thread::stopAPC,
-            threadHandle_m,
-            reinterpret_cast<ULONG_PTR>(make_tuple_ptr(this)));
+void CaptureThread::stop() {
+    [[gsl::suppress("26490")]] // bad API design
+    QueueUserAPC(
+        &CaptureThread::stopAPC, threadHandle_m, reinterpret_cast<ULONG_PTR>(make_tuple_ptr(this)));
 }
 
-void capture_thread::run() {
+void CaptureThread::run() {
     threadHandle_m = GetCurrentThreadHandle();
     LATER(CloseHandle(threadHandle_m));
     const auto alertable = true;
@@ -101,7 +97,7 @@ void capture_thread::run() {
     }
 }
 
-void capture_thread::initDuplication() {
+void CaptureThread::initDuplication() {
     ComPtr<IDXGIDevice> dxgi_device;
     auto result = device_m.As(&dxgi_device);
     if (IS_ERROR(result)) throw Unexpected{"Failed to get IDXGIDevice from device"};
@@ -137,7 +133,7 @@ void capture_thread::initDuplication() {
     }
 }
 
-void capture_thread::handleDeviceError(
+void CaptureThread::handleDeviceError(
     const char *text, HRESULT result, std::initializer_list<HRESULT> expected) {
     if (device_m) {
         const auto reason = device_m->GetDeviceRemovedReason();
@@ -149,8 +145,8 @@ void capture_thread::handleDeviceError(
     throw Unexpected{text};
 }
 
-std::optional<captured_update> capture_thread::captureUpdate() {
-    captured_update update;
+auto CaptureThread::captureUpdate() -> std::optional<CapturedUpdate> {
+    CapturedUpdate update;
     const auto time = 50;
     ComPtr<IDXGIResource> resource;
     DXGI_OUTDUPL_FRAME_INFO frame_info;

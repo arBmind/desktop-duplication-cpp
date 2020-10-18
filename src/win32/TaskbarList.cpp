@@ -1,17 +1,17 @@
-#include "taskbar_list.h"
+#include "TaskbarList.h"
 
 #include <gsl.h>
 
 namespace win32 {
 
-menu_entry::menu_entry(const menu_entry::this_t &o)
+MenuEntry::MenuEntry(const MenuEntry &o)
     : icon(DuplicateIcon(nullptr, o.icon))
     , bitmap(
           o.bitmap ? static_cast<HBITMAP>(CopyImage(o.bitmap, IMAGE_BITMAP, 0, 0, 0)) : HBITMAP{})
     , tooltip(o.tooltip)
     , flags(o.flags) {}
 
-menu_entry::this_t &menu_entry::operator=(const menu_entry::this_t &o) {
+auto MenuEntry::operator=(const MenuEntry &o) -> MenuEntry & {
     if (icon) DestroyIcon(icon);
     if (bitmap) DeleteObject(bitmap);
     icon = o.icon ? DuplicateIcon(nullptr, o.icon) : HICON{};
@@ -22,7 +22,7 @@ menu_entry::this_t &menu_entry::operator=(const menu_entry::this_t &o) {
     return *this;
 }
 
-taskbar_list::taskbar_list(HWND window, config config)
+TaskbarList::TaskbarList(HWND window, Config config)
     : window(window)
     , idBase(config.idBase)
     , iconSize(config.iconSize) {
@@ -33,14 +33,14 @@ taskbar_list::taskbar_list(HWND window, config config)
     }
 }
 
-taskbar_list taskbar_list::forWindow(HWND window) const noexcept {
-    auto r = taskbar_list{};
+auto TaskbarList::forWindow(HWND window) const noexcept -> TaskbarList {
+    auto r = TaskbarList{};
     r.window = window;
     r.p = p;
     return r;
 }
 
-void taskbar_list::setProgressFlags(ProgressFlags flags) {
+void TaskbarList::setProgressFlags(ProgressFlags flags) {
     auto f = TBPFLAG{};
     if (flags.has_any(ProgressFlag::Normal)) f |= TBPF_NORMAL;
     if (flags.has_any(ProgressFlag::Paused)) f |= TBPF_PAUSED;
@@ -49,11 +49,11 @@ void taskbar_list::setProgressFlags(ProgressFlags flags) {
     if (p) p->SetProgressState(window, f);
 }
 
-void taskbar_list::setProgressValue(uint64_t value, uint64_t total) {
+void TaskbarList::setProgressValue(uint64_t value, uint64_t total) {
     if (p) p->SetProgressValue(window, value, total);
 }
 
-void taskbar_list::setButtonLetterIcon(size_t idx, wchar_t chr, COLORREF color) noexcept {
+void TaskbarList::setButtonLetterIcon(size_t idx, wchar_t chr, COLORREF Color) noexcept {
     const auto size = iconSize;
     constexpr const char fontName[] = "Segoe MDL2 Assets";
     auto dc = GetDC(window);
@@ -104,7 +104,7 @@ void taskbar_list::setButtonLetterIcon(size_t idx, wchar_t chr, COLORREF color) 
 
     const auto oldBkMode = SetBkMode(dcMem, TRANSPARENT);
     // auto oldBkColor = SetBkColor(dcMem, RGB(0, 0, 0));
-    const auto oldTextColor = SetTextColor(dcMem, color);
+    const auto oldTextColor = SetTextColor(dcMem, Color);
 
     const UINT format = DT_NOCLIP | DT_CENTER | DT_SINGLELINE | DT_VCENTER;
     DrawTextW(dcMem, &chr, 1, &rect, format);
@@ -123,13 +123,13 @@ void taskbar_list::setButtonLetterIcon(size_t idx, wchar_t chr, COLORREF color) 
     DeleteDC(dcMem);
 }
 
-void taskbar_list::setButtonFlags(size_t idx, ThumbButtonFlags flags) noexcept {
+void TaskbarList::setButtonFlags(size_t idx, ThumbButtonFlags flags) noexcept {
     if (idx < menu.size()) {
         menu[idx].flags = flags;
     }
 }
 
-void taskbar_list::setButtonTooltip(size_t idx, std::wstring str) {
+void TaskbarList::setButtonTooltip(size_t idx, std::wstring str) {
     if (idx < menu.size()) {
         menu[idx].tooltip = std::move(str);
     }
@@ -145,7 +145,7 @@ static auto toWindowsFlags(ThumbButtonFlags flags) -> THUMBBUTTONFLAGS {
     return f;
 }
 
-void taskbar_list::updateThumbButtons() {
+void TaskbarList::updateThumbButtons() {
     if (image_updated) {
         updateThumbImages();
         image_updated = false;
@@ -155,12 +155,12 @@ void taskbar_list::updateThumbButtons() {
     auto menuData = std::array<THUMBBUTTON, menuSize>{};
     auto i = 0u;
     for (auto &entry : menu) {
-        [[gsl::suppress(26482)]] // menu and menuData have the same size
+        [[gsl::suppress("26482")]] // menu and menuData have the same size
         auto &data = menuData[i];
         data.iId = i + idBase;
         data.dwFlags = toWindowsFlags(entry.flags);
         data.dwMask = THB_FLAGS | THB_TOOLTIP;
-        [[gsl::suppress(26485)]] // this is save
+        [[gsl::suppress("26485")]] // this is save
         wcscpy_s(data.szTip, ARRAYSIZE(data.szTip), entry.tooltip.c_str());
         data.hIcon = entry.icon;
         if (entry.icon) data.dwMask |= THB_ICON;
@@ -180,7 +180,7 @@ void taskbar_list::updateThumbButtons() {
     }
 }
 
-void taskbar_list::updateThumbImages() {
+void TaskbarList::updateThumbImages() {
     auto imageList = ImageList_Create(iconSize, iconSize, ILC_MASK | ILC_COLOR32, 0, 8);
     for (auto &entry : menu) {
         ImageList_AddMasked(imageList, entry.bitmap, RGB(0, 0, 0));
