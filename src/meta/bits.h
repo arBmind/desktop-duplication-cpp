@@ -6,10 +6,14 @@ namespace meta {
 
 template<class T>
 struct bits {
-    using value_type = uint64_t;
+    static_assert(std::is_enum_v<T>, "flags only works for enums!");
+
+    using enum_type = T;
+    using value_type = std::underlying_type_t<T>;
+    using bit_type = uint64_t;
 
     constexpr bits(const T &v) noexcept
-        : bits(1 << static_cast<value_type>(v)) {}
+        : bits(bit_type{1} << static_cast<value_type>(v)) {}
     constexpr bits(const bits &) noexcept = default;
     constexpr bits(bits &&) noexcept = default;
 
@@ -48,10 +52,7 @@ private:
 
     template<class... Args>
     static constexpr value_type build(const Args &... args) noexcept {
-        auto val = bits{0};
-        auto x = {((val = val | bits{static_cast<const T &>(args)}), 0)...};
-        (void)x;
-        return val.v;
+        return (bits{0} | ... | bits{static_cast<const T &>(args)});
     }
 
 private:
