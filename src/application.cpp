@@ -66,14 +66,11 @@ struct internal : capture_thread::callbacks {
     static auto extractApp(HWND window, UINT message, LPARAM lParam) {
         switch (message) {
         case WM_NCCREATE: {
-#pragma warning(disable : 26490)
             auto create_struct = reinterpret_cast<LPCREATESTRUCT>(lParam);
-#pragma warning(disable : 26471)
-            const auto app = gsl::not_null<internal *>{
-                reinterpret_cast<internal *>(create_struct->lpCreateParams)};
-            SetWindowLongPtrW(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(app.get()));
+            const auto app = static_cast<internal *>(create_struct->lpCreateParams);
+            SetWindowLongPtrW(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(app));
             app->handleWindowSetup(window);
-            return app.get();
+            return app;
         }
         case WM_NCDESTROY: {
             auto app = reinterpret_cast<internal *>(GetWindowLongPtr(window, GWLP_USERDATA));
