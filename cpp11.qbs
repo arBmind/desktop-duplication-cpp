@@ -48,7 +48,6 @@ Project {
             "src/main.rc",
             "src/meta/array.h",
             "src/meta/array_view.h",
-            "src/meta/bits.h",
             "src/meta/comptr.h",
             "src/meta/flags.h",
             "src/meta/opaque_value.h",

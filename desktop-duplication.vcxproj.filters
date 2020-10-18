@@ -50,9 +50,6 @@
     <ClInclude Include="src\meta\array_view.h">
       <Filter>src\meta</Filter>
     </ClInclude>
-    <ClInclude Include="src\meta\bits.h">
-      <Filter>src\meta</Filter>
-    </ClInclude>
     <ClInclude Include="src\meta\comptr.h">
       <Filter>src\meta</Filter>
     </ClInclude>
