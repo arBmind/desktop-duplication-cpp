@@ -1,7 +1,7 @@
 #pragma once
 #include "stable.h"
 
-#include <memory>
+#include <memory> // unique_ptr
 #include <vector>
 
 struct application {

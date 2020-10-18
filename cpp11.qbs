@@ -1,8 +1,6 @@
 import qbs
 
 Project {
-    minimumQbsVersion: "1.6"
-
     qbsSearchPaths: [ "qbs/" ]
 
     CppApplication {
@@ -10,12 +8,14 @@ Project {
         consoleApplication: false
 
         Depends { name: 'cpp' }
-        cpp.cxxLanguageVersion: "c++17"
+        cpp.cxxLanguageVersion: "c++2a"
         cpp.minimumWindowsVersion: "10.0"
         cpp.generateManifestFile: false
         cpp.includePaths: 'src'
-        cpp.cxxFlags: ['/std:c++latest']
+        cpp.cxxFlags: ['/analyze']
         cpp.dynamicLibraries: ['d3d11', "User32", "Gdi32", "Shell32", "Ole32", "Comctl32"]
+
+        Depends { name: 'Microsoft.GSL' }
 
         Depends { name: 'hlsl' }
         hlsl.shaderModel: '4_0_level_9_3'
@@ -69,6 +69,18 @@ Project {
             "src/window_renderer.cpp",
             "src/window_renderer.h",
         ]
+    }
+
+    Project {
+        name: "Third Party"
+
+        Product {
+            name: "Microsoft.GSL"
+            Export {
+                 Depends { name: 'cpp' }
+                 cpp.includePaths: 'packages/Microsoft.Gsl.0.1.2.1/build/native/include'
+            }
+        }
     }
 
     Product {

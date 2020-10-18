@@ -1,5 +1,5 @@
-#include "window_renderer.h"
 #include "pointer_updater.h"
+#include "window_renderer.h"
 
 #include "renderer.h"
 
@@ -36,8 +36,9 @@ void window_renderer::setZoom(float zoom) noexcept {
 
 void window_renderer::moveOffset(POINT delta) noexcept {
     if (delta.x == 0 && delta.y == 0) return;
-    const auto offset = vec2f{offset_m.x + static_cast<float>(delta.x) / zoom_m,
-                              offset_m.y + static_cast<float>(delta.y) / zoom_m};
+    const auto offset = vec2f{
+        offset_m.x + static_cast<float>(delta.x) / zoom_m,
+        offset_m.y + static_cast<float>(delta.y) / zoom_m};
     offset_m = offset;
 }
 
@@ -184,13 +185,14 @@ void window_renderer::updatePointerShape(const pointer_buffer &pointer) {
         const auto width = texture_description.Width;
         const auto height = texture_description.Height >> 1;
         const auto pitch = pointer.shape_info.Pitch;
-        tmpData.resize(width * height);
-        for (auto row = 0u; row < height; ++row) {
+        const auto xor_offset = static_cast<size_t>(height) * pitch;
+        tmpData.resize(static_cast<size_t>(width) * height);
+        for (auto row = size_t{}; row < height; ++row) {
             for (auto col = 0u; col < width; ++col) {
                 const auto mask = 0x80 >> (col & 7);
                 const auto addr = (col >> 3) + (row * pitch);
                 const auto and_mask = pointer.shape_data[addr] & mask;
-                const auto xor_mask = pointer.shape_data[addr + height * pitch] & mask;
+                const auto xor_mask = pointer.shape_data[addr + xor_offset] & mask;
                 const auto pixel = and_mask ? (xor_mask ? color{{0xFF, 0xFF, 0xFF, 0xFF}}
                                                         : color{{0x00, 0x00, 0x00, 0xFF}})
                                             : (xor_mask ? color{{0xFF, 0xFF, 0xFF, 0x00}}
@@ -249,18 +251,20 @@ void window_renderer::updatePointerVertices(const pointer_buffer &pointer) {
 
     const auto &dx = *dx_m;
 
-    vertex vertices[] = {vertex{-1.0f, -1.0f, 0.0f, 1.0f},
-                         vertex{-1.0f, 1.0f, 0.0f, 0.0f},
-                         vertex{1.0f, -1.0f, 1.0f, 1.0f},
-                         vertex{1.0f, -1.0f, 1.0f, 1.0f},
-                         vertex{-1.0f, 1.0f, 0.0f, 0.0f},
-                         vertex{1.0f, 1.0f, 1.0f, 0.0f}};
+    vertex vertices[] = {
+        vertex{-1.0f, -1.0f, 0.0f, 1.0f},
+        vertex{-1.0f, 1.0f, 0.0f, 0.0f},
+        vertex{1.0f, -1.0f, 1.0f, 1.0f},
+        vertex{1.0f, -1.0f, 1.0f, 1.0f},
+        vertex{-1.0f, 1.0f, 0.0f, 0.0f},
+        vertex{1.0f, 1.0f, 1.0f, 0.0f}};
 
     D3D11_TEXTURE2D_DESC texture_description;
     dx.backgroundTexture_m->GetDesc(&texture_description);
 
-    const auto texture_size = SIZE{gsl::narrow_cast<int>(texture_description.Width),
-                                   gsl::narrow_cast<int>(texture_description.Height)};
+    const auto texture_size = SIZE{
+        gsl::narrow_cast<int>(texture_description.Width),
+        gsl::narrow_cast<int>(texture_description.Height)};
     const auto center = POINT{texture_size.cx / 2, texture_size.cy / 2};
 
     const auto position = pointer.position;
@@ -271,10 +275,10 @@ void window_renderer::updatePointerVertices(const pointer_buffer &pointer) {
     };
 
     const auto isMonochrome = pointer.shape_info.Type == DXGI_OUTDUPL_POINTER_SHAPE_TYPE_MONOCHROME;
-    const auto size =
-        SIZE{gsl::narrow_cast<int>(pointer.shape_info.Width),
-             gsl::narrow_cast<int>(
-                 isMonochrome ? pointer.shape_info.Height / 2 : pointer.shape_info.Height)};
+    const auto size = SIZE{
+        gsl::narrow_cast<int>(pointer.shape_info.Width),
+        gsl::narrow_cast<int>(
+            isMonochrome ? pointer.shape_info.Height / 2 : pointer.shape_info.Height)};
     mouse_to_desktop(vertices[0], 0, size.cy);
     mouse_to_desktop(vertices[1], 0, 0);
     mouse_to_desktop(vertices[2], size.cx, size.cy);
@@ -315,12 +319,13 @@ void window_renderer::resources::createBackgroundTextureShaderResource() {
 }
 
 void window_renderer::resources::createBackgroundVertexBuffer() {
-    static const vertex vertices[] = {vertex{-1.0f, -1.0f, 0.0f, 1.0f},
-                                      vertex{-1.0f, 1.0f, 0.0f, 0.0f},
-                                      vertex{1.0f, -1.0f, 1.0f, 1.0f},
-                                      vertex{1.0f, -1.0f, 1.0f, 1.0f},
-                                      vertex{-1.0f, 1.0f, 0.0f, 0.0f},
-                                      vertex{1.0f, 1.0f, 1.0f, 0.0f}};
+    static const vertex vertices[] = {
+        vertex{-1.0f, -1.0f, 0.0f, 1.0f},
+        vertex{-1.0f, 1.0f, 0.0f, 0.0f},
+        vertex{1.0f, -1.0f, 1.0f, 1.0f},
+        vertex{1.0f, -1.0f, 1.0f, 1.0f},
+        vertex{-1.0f, 1.0f, 0.0f, 0.0f},
+        vertex{1.0f, 1.0f, 1.0f, 0.0f}};
 
     D3D11_BUFFER_DESC buffer_description;
     RtlZeroMemory(&buffer_description, sizeof(buffer_description));

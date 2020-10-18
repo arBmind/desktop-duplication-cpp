@@ -1,6 +1,5 @@
 #include "taskbar_list.h"
 
-#include <CppCoreCheck/Warnings.h>
 #include <gsl.h>
 
 namespace win32 {
@@ -157,12 +156,12 @@ void taskbar_list::updateThumbButtons() {
     auto i = 0u;
     for (auto &entry : menu) {
         [[gsl::suppress(26482)]] // menu and menuData have the same size
-            auto &data = menuData[i];
+        auto &data = menuData[i];
         data.iId = i + idBase;
         data.dwFlags = toWindowsFlags(entry.flags);
         data.dwMask = THB_FLAGS | THB_TOOLTIP;
         [[gsl::suppress(26485)]] // this is save
-            wcscpy_s(data.szTip, ARRAYSIZE(data.szTip), entry.tooltip.c_str());
+        wcscpy_s(data.szTip, ARRAYSIZE(data.szTip), entry.tooltip.c_str());
         data.hIcon = entry.icon;
         if (entry.icon) data.dwMask |= THB_ICON;
         if (entry.bitmap) {

@@ -6,3 +6,4 @@ VertexShader.h
 PixelShader.h
 *PixelShader.h
 packages/
+*.user.*

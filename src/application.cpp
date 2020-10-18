@@ -141,8 +141,9 @@ struct internal : capture_thread::callbacks {
         case WM_LBUTTONUP: dragging = false; break;
         case WM_MOUSEMOVE:
             if (dragging && GET_KEYSTATE_WPARAM(wParam) == (MK_LBUTTON | MK_SHIFT)) {
-                const auto delta = POINT{GET_X_LPARAM(lParam) - GET_X_LPARAM(lastpos),
-                                         GET_Y_LPARAM(lParam) - GET_Y_LPARAM(lastpos)};
+                const auto delta = POINT{
+                    GET_X_LPARAM(lParam) - GET_X_LPARAM(lastpos),
+                    GET_Y_LPARAM(lParam) - GET_Y_LPARAM(lastpos)};
                 moveTexture(delta);
                 lastpos = lParam;
             }
@@ -230,7 +231,7 @@ struct internal : capture_thread::callbacks {
                 paintVisibleArea();
                 break;
             }
-            // fall through
+            [[fallthrough]];
         default: return fallback();
         }
         return 0;
