@@ -30,6 +30,11 @@ Project {
             hlsl.shaderType: 'vs'
             files: ["src/VertexShader.hlsl"]
         }
+        Group {
+            name: 'PCH'
+            files: ["src/stable.h"]
+            fileTags: ["cpp_pch_src"]
+        }
 
         files: [
             "src/application.cpp",
@@ -60,7 +65,6 @@ Project {
             "src/pointer_updater.h",
             "src/renderer.cpp",
             "src/renderer.h",
-            "src/stable.h",
             "src/win32/power_request.cpp",
             "src/win32/power_request.h",
             "src/win32/taskbar_list.cpp",
