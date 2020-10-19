@@ -31,7 +31,9 @@ auto rotate(const RECT &rect, DXGI_MODE_ROTATION rotation, const SIZE &size) noe
 } // namespace
 
 FrameUpdater::FrameUpdater(InitArgs &&args)
-    : m_dx(std::move(args)) {}
+    : m_dx(std::move(args)) {
+    // m_dirtyQuads.reserve(128);
+}
 
 void FrameUpdater::update(const FrameUpdate &data, const FrameContext &context) {
     performMoves(data, context);
@@ -129,11 +131,41 @@ void FrameUpdater::updateDirty(const FrameUpdate &data, const FrameContext &cont
             y / static_cast<float>(desktop_description.Height)};
     };
 
-    m_dirtyQuads.reserve(dirts.size());
-    m_dirtyQuads.clear();
+    auto vertexBufferSize = static_cast<uint32_t>(sizeof(quad_vertices) * dirts.size());
+    if (m_dx.vertexBufferSize < vertexBufferSize) {
+        D3D11_BUFFER_DESC buffer_description;
+        RtlZeroMemory(&buffer_description, sizeof(buffer_description));
+        buffer_description.Usage = D3D11_USAGE_DEFAULT;
+        [[gsl::suppress("26472")]] // conversion required because of APIs
+        buffer_description.ByteWidth = vertexBufferSize;
+        buffer_description.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        buffer_description.Usage = D3D11_USAGE_DYNAMIC;
+        buffer_description.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+        // D3D11_SUBRESOURCE_DATA init_data;
+        // RtlZeroMemory(&init_data, sizeof(init_data));
+        // init_data.pSysMem = m_dirtyQuads.data();
+
+        const auto result =
+            m_dx.device()->CreateBuffer(&buffer_description, nullptr, &m_dx.vertexBuffer);
+        if (IS_ERROR(result)) throw RenderFailure(result, "Failed to create dirty vertex buffer");
+        m_dx.vertexBufferSize = vertexBufferSize;
+    }
+
+    D3D11_MAPPED_SUBRESOURCE mapped;
+    const auto subresource = 0;
+    const auto mapType = D3D11_MAP_WRITE_DISCARD;
+    const unsigned mapFlags = 0;
+    m_dx.deviceContext()->Map(m_dx.vertexBuffer.Get(), subresource, mapType, mapFlags, &mapped);
+
+    auto *vertex_ptr = static_cast<quad_vertices *>(mapped.pData);
+
+    // m_dirtyQuads.reserve(dirts.size());
+    // m_dirtyQuads.clear();
     for (const auto &dirt : dirts) {
         const auto rotated = rotate(dirt, rotation, desktop_size);
-        quad_vertices vertices;
+        // quad_vertices vertices;
+        auto &vertices = *static_cast<quad_vertices *>(vertex_ptr);
 
         vertices[0] = make_vertex(rotated.left, rotated.bottom);
         vertices[1] = make_vertex(rotated.left, rotated.top);
@@ -142,29 +174,15 @@ void FrameUpdater::updateDirty(const FrameUpdate &data, const FrameContext &cont
         vertices[4] = vertices[1];
         vertices[5] = make_vertex(rotated.right, rotated.top);
 
-        m_dirtyQuads.push_back(vertices);
+        // m_dirtyQuads.push_back(vertices);
+        vertex_ptr++;
     }
-
-    D3D11_BUFFER_DESC buffer_description;
-    RtlZeroMemory(&buffer_description, sizeof(buffer_description));
-    buffer_description.Usage = D3D11_USAGE_DEFAULT;
-    [[gsl::suppress("26472")]] // conversion required because of APIs
-    buffer_description.ByteWidth = static_cast<uint32_t>(sizeof(quad_vertices) * dirts.size());
-    buffer_description.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-    buffer_description.CPUAccessFlags = 0;
-
-    D3D11_SUBRESOURCE_DATA init_data;
-    RtlZeroMemory(&init_data, sizeof(init_data));
-    init_data.pSysMem = m_dirtyQuads.data();
-
-    ComPtr<ID3D11Buffer> vertex_buffer;
-    const auto result =
-        m_dx.device()->CreateBuffer(&buffer_description, &init_data, &vertex_buffer);
-    if (IS_ERROR(result)) throw RenderFailure(result, "Failed to create dirty vertex buffer");
+    m_dx.deviceContext()->Unmap(m_dx.vertexBuffer.Get(), 0);
 
     const uint32_t stride = sizeof(Vertex);
     const uint32_t offset = 0;
-    m_dx.deviceContext()->IASetVertexBuffers(0, 1, vertex_buffer.GetAddressOf(), &stride, &offset);
+    m_dx.deviceContext()->IASetVertexBuffers(
+        0, 1, m_dx.vertexBuffer.GetAddressOf(), &stride, &offset);
 
     D3D11_VIEWPORT view_port;
     view_port.Width = static_cast<FLOAT>(target_description.Width);

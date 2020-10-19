@@ -43,8 +43,10 @@ private:
         ComPtr<ID3D11RenderTargetView> renderTarget;
 
         ComPtr<ID3D11Texture2D> moveTmp;
+        ComPtr<ID3D11Buffer> vertexBuffer;
+        uint32_t vertexBufferSize{};
     };
     Resources m_dx;
 
-    std::vector<quad_vertices> m_dirtyQuads;
+    // std::vector<quad_vertices> m_dirtyQuads;
 };
