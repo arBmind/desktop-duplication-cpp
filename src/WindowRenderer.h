@@ -25,6 +25,7 @@ struct WindowRenderer {
     auto offset() const noexcept -> POINT {
         return {static_cast<long>(m_offset.x), static_cast<long>(m_offset.y)};
     }
+    auto frameLatencyWaitable() -> HANDLE;
 
     bool resize(SIZE size) noexcept;
     void setZoom(float zoom) noexcept;
@@ -105,7 +106,7 @@ private:
         ComPtr<ID3D11Texture2D> backgroundTexture;
         ComPtr<ID3D11ShaderResourceView> backgroundTextureShaderResource;
         ComPtr<ID3D11Buffer> backgroundVertexBuffer;
-        ComPtr<IDXGISwapChain1> swapChain;
+        ComPtr<IDXGISwapChain2> swapChain;
         ComPtr<ID3D11RenderTargetView> renderTarget;
         ComPtr<ID3D11PixelShader> maskedPixelShader;
         ComPtr<ID3D11SamplerState> linearSamplerState;

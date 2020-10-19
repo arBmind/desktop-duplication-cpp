@@ -22,6 +22,10 @@ void WindowRenderer::init(InitArgs &&args) {
 
 void WindowRenderer::reset() noexcept { m_dx.reset(); }
 
+auto WindowRenderer::frameLatencyWaitable() -> HANDLE {
+    return m_dx->swapChain->GetFrameLatencyWaitableObject();
+}
+
 bool WindowRenderer::resize(SIZE size) noexcept {
     if (size.cx == m_size.cx && size.cy == m_size.cy) return false;
     m_size = size;

@@ -62,7 +62,7 @@ auto getFactory(const ComPtr<ID3D11Device> &device) -> ComPtr<IDXGIFactory2> {
 
 auto createSwapChain(
     const ComPtr<IDXGIFactory2> &factory, const ComPtr<ID3D11Device> &device, HWND window)
-    -> ComPtr<IDXGISwapChain1> {
+    -> ComPtr<IDXGISwapChain2> {
     [[gsl::suppress("26415"), gsl::suppress("26418")]] // ComPtr is not just a smart pointer
     RECT rect;
     GetClientRect(window, &rect);
@@ -80,6 +80,7 @@ auto createSwapChain(
     swap_chain_desription.BufferCount = 2;
     swap_chain_desription.Scaling = DXGI_SCALING_NONE;
     swap_chain_desription.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
+    swap_chain_desription.Flags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
 
     ComPtr<IDXGISwapChain1> swap_chain;
     auto result = factory->CreateSwapChainForHwnd(
@@ -89,7 +90,11 @@ auto createSwapChain(
     result = factory->MakeWindowAssociation(window, DXGI_MWA_NO_ALT_ENTER);
     if (IS_ERROR(result)) throw Error{result, "Failed to associate window"};
 
-    return swap_chain;
+    ComPtr<IDXGISwapChain2> swap_chain2;
+    result = swap_chain.As(&swap_chain2);
+    if (IS_ERROR(result)) throw Error{result, "Failed to get swapchain2"};
+
+    return swap_chain2;
 }
 
 auto getDimensionData(const ComPtr<ID3D11Device> &device, const std::vector<int> displays)

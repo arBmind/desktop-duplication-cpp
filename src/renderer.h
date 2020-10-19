@@ -27,7 +27,7 @@ auto getFactory(const ComPtr<ID3D11Device> &device) -> ComPtr<IDXGIFactory2>;
 
 auto createSwapChain(
     const ComPtr<IDXGIFactory2> &factory, const ComPtr<ID3D11Device> &device, HWND window)
-    -> ComPtr<IDXGISwapChain1>;
+    -> ComPtr<IDXGISwapChain2>;
 
 struct DimensionData {
     RECT rect{};

@@ -6,6 +6,8 @@
 #include "CapturedUpdate.h"
 
 #include "meta/scope_guard.h"
+#include "meta/tuple.h"
+
 #include <gsl.h>
 
 namespace {
@@ -71,7 +73,6 @@ void CaptureThread::stop() {
 void CaptureThread::run() {
     m_threadHandle = GetCurrentThreadHandle();
     LATER(CloseHandle(m_threadHandle));
-    const auto alertable = true;
     try {
         setDesktop();
         initDuplication();
@@ -84,12 +85,14 @@ void CaptureThread::run() {
                 }
             }
             const auto timeout = m_doCapture ? 1 : INFINITE;
+            const auto alertable = true;
             SleepEx(timeout, alertable);
         }
     }
     catch (...) {
         m_callbacks->setError(std::current_exception());
         while (m_keepRunning) {
+            const auto alertable = true;
             SleepEx(INFINITE, alertable);
         }
     }

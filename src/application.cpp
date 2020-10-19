@@ -396,8 +396,18 @@ struct AppImpl : CaptureThread::Callbacks {
         const auto window_size = rectSize(window_rect);
         const auto changed = m_windowRenderer.resize(window_size);
         if (changed) {
+            resetFrameLatencyHandle();
             m_doRender = true;
             updateVisibleArea();
+        }
+    }
+
+    void resetFrameLatencyHandle() {
+        if (m_frameLatencyIndex >= 0) {
+            CloseHandle(m_handles[m_frameLatencyIndex]);
+            m_handles.erase(m_handles.begin() + m_frameLatencyIndex);
+            m_frameLatencyIndex = -1;
+            m_waitFrame = false;
         }
     }
 
@@ -549,11 +559,6 @@ struct AppImpl : CaptureThread::Callbacks {
         auto self = static_cast<AppImpl *>(parameter);
         self->m_canStartDuplication = true;
     }
-    static void CALLBACK
-    awaitFrameAPC(LPVOID parameter, DWORD dwTimerLowValue, DWORD dwTimerHighValue) noexcept {
-        auto self = static_cast<AppImpl *>(parameter);
-        self->m_waitFrame = false;
-    }
 
     void initCaptureThreads() {
         for (const auto display : m_config.displays) {
@@ -578,8 +583,6 @@ struct AppImpl : CaptureThread::Callbacks {
             m_powerRequest = decltype(m_powerRequest)(L"Desktop Duplication Tool");
             m_retryTimer = CreateWaitableTimer(nullptr, false, TEXT("RetryTimer"));
             LATER(CloseHandle(m_retryTimer));
-            m_frameTimer = CreateWaitableTimer(nullptr, false, TEXT("FrameTimer"));
-            LATER(CloseHandle(m_frameTimer));
 
             createMainWindow(m_config.instanceHandle, m_config.showCommand);
             initCaptureThreads();
@@ -657,6 +660,7 @@ struct AppImpl : CaptureThread::Callbacks {
             for (const auto &capture : m_captureThreads) {
                 startCaptureThread(*capture, m_offset, handle);
             }
+            resetFrameLatencyHandle();
         }
         catch (const renderer::Error &e) {
             throw Expected{e.message};
@@ -694,6 +698,7 @@ struct AppImpl : CaptureThread::Callbacks {
             m_frameUpdaters.clear();
             m_updatedThreads.clear();
             m_windowRenderer.reset();
+            resetFrameLatencyHandle();
         }
         catch (Expected &e) {
             OutputDebugStringA("stopDuplication Threw: ");
@@ -729,14 +734,11 @@ struct AppImpl : CaptureThread::Callbacks {
     void awaitNextFrame() {
         if (!m_waitFrame) {
             m_waitFrame = true;
-            LARGE_INTEGER queueTime;
-            queueTime.QuadPart = -10 * 1000 * 10; // relative 10 ms
-            const auto noPeriod = 0;
-            const auto apcArgument = this;
-            const auto awakeSuspend = false;
-            const auto success = SetWaitableTimer(
-                m_retryTimer, &queueTime, noPeriod, awaitFrameAPC, apcArgument, awakeSuspend);
-            if (!success) throw Unexpected{"failed to arm frame timer"};
+
+            if (m_frameLatencyIndex < 0) {
+                m_frameLatencyIndex = m_handles.size();
+                m_handles.push_back(m_windowRenderer.frameLatencyWaitable());
+            }
         }
     }
 
@@ -749,7 +751,7 @@ struct AppImpl : CaptureThread::Callbacks {
             const auto apcArgument = this;
             const auto awakeSuspend = false;
             const auto success = SetWaitableTimer(
-                m_frameTimer, &queueTime, noPeriod, retryDuplicationAPC, apcArgument, awakeSuspend);
+                m_retryTimer, &queueTime, noPeriod, retryDuplicationAPC, apcArgument, awakeSuspend);
             if (!success) throw Unexpected{"failed to arm retry timer"};
         }
     }
@@ -765,6 +767,9 @@ struct AppImpl : CaptureThread::Callbacks {
             wake_mask,
             flags);
         if (WAIT_FAILED == awoken) throw Unexpected{"Application Waiting failed"};
+        if (m_frameLatencyIndex >= 0 && WAIT_OBJECT_0 + m_frameLatencyIndex == awoken) {
+            m_waitFrame = false;
+        }
         if (WAIT_OBJECT_0 == awoken - handle_count) processMessages();
     }
 
@@ -796,7 +801,12 @@ struct AppImpl : CaptureThread::Callbacks {
         if (!m_isDuplicationStarted) return;
         m_frameUpdaters[threadIndex].update(update.frame, context);
         m_pointerUpdater.update(update.pointer, context);
-        m_updatedThreads.push_back(threadIndex);
+        if (m_isFreezed) {
+            m_updatedThreads.push_back(threadIndex);
+        }
+        else {
+            m_captureThreads[threadIndex]->next();
+        }
         m_doRender = true;
     }
 
@@ -808,7 +818,7 @@ private:
     win32::PowerRequest<PowerRequestDisplayRequired, PowerRequestSystemRequired> m_powerRequest;
     win32::TaskbarList m_taskbarList;
     HANDLE m_retryTimer{};
-    HANDLE m_frameTimer{};
+    int m_frameLatencyIndex{-1};
 
 public:
     HANDLE m_threadHandle;
