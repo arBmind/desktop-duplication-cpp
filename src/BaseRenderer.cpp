@@ -8,8 +8,8 @@
 using Error = renderer::Error;
 
 BaseRenderer::BaseRenderer(InitArgs &&args)
-    : device_m(std::move(args.device))
-    , deviceContext_m(std::move(args.deviceContext)) {
+    : m_device(std::move(args.device))
+    , m_deviceContext(std::move(args.deviceContext)) {
     createDiscreteSamplerState();
     createAlphaBlendState();
     createVertexShader();
@@ -18,9 +18,9 @@ BaseRenderer::BaseRenderer(InitArgs &&args)
 
 BaseRenderer::~BaseRenderer() {
     // ensure device is clean, so we can create a new one!
-    if (deviceContext_m) {
-        deviceContext_m->ClearState();
-        deviceContext_m->Flush();
+    if (m_deviceContext) {
+        m_deviceContext->ClearState();
+        m_deviceContext->Flush();
     }
 }
 
@@ -37,8 +37,8 @@ auto BaseRenderer::createShaderTexture(gsl::not_null<ID3D11Texture2D *> texture)
 
     ComPtr<ID3D11ShaderResourceView> shader_resource;
     const auto result =
-        device_m->CreateShaderResourceView(texture, &shader_resource_description, &shader_resource);
-    if (IS_ERROR(result)) throw Error{result, "Failed to create texture resource"};
+        m_device->CreateShaderResourceView(texture, &shader_resource_description, &shader_resource);
+    if (IS_ERROR(result)) throw Error{result, "Failed to create shader texture resource"};
     return shader_resource;
 }
 
@@ -53,7 +53,7 @@ auto BaseRenderer::createLinearSampler() -> ComPtr<ID3D11SamplerState> {
     descrption.MinLOD = 0;
     descrption.MaxLOD = D3D11_FLOAT32_MAX;
     ComPtr<ID3D11SamplerState> sampler;
-    const auto result = device_m->CreateSamplerState(&descrption, &sampler);
+    const auto result = m_device->CreateSamplerState(&descrption, &sampler);
     if (IS_ERROR(result)) throw Error{result, "Failed to create linear sampler state"};
     return sampler;
 }
@@ -68,7 +68,7 @@ void BaseRenderer::createDiscreteSamplerState() {
     descrption.ComparisonFunc = D3D11_COMPARISON_NEVER;
     descrption.MinLOD = 0;
     descrption.MaxLOD = D3D11_FLOAT32_MAX;
-    const auto result = device_m->CreateSamplerState(&descrption, &discreteSamplerState_m);
+    const auto result = m_device->CreateSamplerState(&descrption, &m_discreteSamplerState);
     if (IS_ERROR(result)) throw Error{result, "Failed to create discrete sampler state"};
 }
 
@@ -84,14 +84,14 @@ void BaseRenderer::createAlphaBlendState() {
     description.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
     description.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
     description.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-    const auto result = device_m->CreateBlendState(&description, &alphaBlendState_m);
+    const auto result = m_device->CreateBlendState(&description, &m_alphaBlendState);
     if (IS_ERROR(result)) throw Error{result, "Failed to create blend state"};
 }
 
 void BaseRenderer::createVertexShader() {
     const auto size = ARRAYSIZE(g_VertexShader);
     auto shader = &g_VertexShader[0];
-    auto result = device_m->CreateVertexShader(shader, size, nullptr, &vertexShader_m);
+    auto result = m_device->CreateVertexShader(shader, size, nullptr, &m_vertexShader);
     if (IS_ERROR(result)) throw Error{result, "Failed to create vertex shader"};
 
     static const auto layout = std::array{
@@ -100,7 +100,7 @@ void BaseRenderer::createVertexShader() {
         D3D11_INPUT_ELEMENT_DESC{
             "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 8, D3D11_INPUT_PER_VERTEX_DATA, 0}};
     const auto layout_size = static_cast<uint32_t>(layout.size());
-    result = device_m->CreateInputLayout(layout.data(), layout_size, shader, size, &inputLayout_m);
+    result = m_device->CreateInputLayout(layout.data(), layout_size, shader, size, &m_inputLayout);
     if (IS_ERROR(result)) throw Error{result, "Failed to create input layout"};
 }
 
@@ -108,6 +108,6 @@ void BaseRenderer::createPlainPixelShader() {
     const auto size = ARRAYSIZE(g_PlainPixelShader);
     auto shader = &g_PlainPixelShader[0];
     ID3D11ClassLinkage *linkage = nullptr;
-    const auto result = device_m->CreatePixelShader(shader, size, linkage, &plainPixelShader_m);
+    const auto result = m_device->CreatePixelShader(shader, size, linkage, &m_plainPixelShader);
     if (IS_ERROR(result)) throw Error{result, "Failed to create pixel shader"};
 }

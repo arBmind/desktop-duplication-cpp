@@ -8,20 +8,20 @@
 
 void PointerUpdater::update(PointerUpdate &update, const FrameContext &context) {
     if (update.update_time == 0) return;
-    if (pointer_desktop_m == context.output_desc.DesktopCoordinates //
+    if (m_pointer_desktop == context.output_desc.DesktopCoordinates //
         || (update.position.Visible &&
-            (!pointer_m.visible || update.update_time > pointer_m.position_timestamp))) {
-        pointer_desktop_m = context.output_desc.DesktopCoordinates;
-        pointer_m.position_timestamp = update.update_time;
-        pointer_m.visible = update.position.Visible;
-        pointer_m.position.x = update.position.Position.x +
+            (!m_pointer.visible || update.update_time > m_pointer.position_timestamp))) {
+        m_pointer_desktop = context.output_desc.DesktopCoordinates;
+        m_pointer.position_timestamp = update.update_time;
+        m_pointer.visible = update.position.Visible;
+        m_pointer.position.x = update.position.Position.x +
                                context.output_desc.DesktopCoordinates.left - context.offset.x;
-        pointer_m.position.y = update.position.Position.y +
+        m_pointer.position.y = update.position.Position.y +
                                context.output_desc.DesktopCoordinates.top - context.offset.y;
     }
     if (!update.shape_buffer.empty()) {
-        pointer_m.shape_timestamp = update.update_time;
-        pointer_m.shape_data = std::move(update.shape_buffer);
-        pointer_m.shape_info = update.shape_info;
+        m_pointer.shape_timestamp = update.update_time;
+        m_pointer.shape_data = std::move(update.shape_buffer);
+        m_pointer.shape_info = update.shape_info;
     }
 }

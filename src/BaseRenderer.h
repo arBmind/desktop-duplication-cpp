@@ -31,38 +31,38 @@ struct BaseRenderer {
         -> ComPtr<ID3D11ShaderResourceView>;
     auto createLinearSampler() -> ComPtr<ID3D11SamplerState>;
 
-    auto device() const noexcept -> ID3D11Device * { return device_m.Get(); }
-    auto deviceContext() const noexcept -> ID3D11DeviceContext * { return deviceContext_m.Get(); }
+    auto device() const noexcept -> ID3D11Device * { return m_device.Get(); }
+    auto deviceContext() const noexcept -> ID3D11DeviceContext * { return m_deviceContext.Get(); }
 
     void activateNoRenderTarget() const {
-        deviceContext_m->OMSetRenderTargets(0, nullptr, nullptr);
+        m_deviceContext->OMSetRenderTargets(0, nullptr, nullptr);
     }
 
     void activateDiscreteSampler(int index = 0) const {
-        deviceContext_m->PSSetSamplers(index, 1, discreteSamplerState_m.GetAddressOf());
+        m_deviceContext->PSSetSamplers(index, 1, m_discreteSamplerState.GetAddressOf());
     }
 
     void activateAlphaBlendState() const {
         const Color blendFactor{{0.f, 0.f, 0.f, 0.f}};
         const uint32_t sampleMask = 0xffffffff;
-        deviceContext_m->OMSetBlendState(alphaBlendState_m.Get(), blendFactor.data(), sampleMask);
+        m_deviceContext->OMSetBlendState(m_alphaBlendState.Get(), blendFactor.data(), sampleMask);
     }
     void activateNoBlendState() const {
         const Color blendFactor{{0.f, 0.f, 0.f, 0.f}};
         const uint32_t sampleMask = 0xffffffff;
-        deviceContext_m->OMSetBlendState(nullptr, blendFactor.data(), sampleMask);
+        m_deviceContext->OMSetBlendState(nullptr, blendFactor.data(), sampleMask);
     }
 
     void activateVertexShader() const {
-        deviceContext_m->VSSetShader(vertexShader_m.Get(), nullptr, 0);
-        deviceContext_m->IASetInputLayout(inputLayout_m.Get());
+        m_deviceContext->VSSetShader(m_vertexShader.Get(), nullptr, 0);
+        m_deviceContext->IASetInputLayout(m_inputLayout.Get());
     }
     void activatePlainPixelShader() const {
-        deviceContext_m->PSSetShader(plainPixelShader_m.Get(), nullptr, 0);
+        m_deviceContext->PSSetShader(m_plainPixelShader.Get(), nullptr, 0);
     }
 
     void activateTriangleList() const {
-        deviceContext_m->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        m_deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     }
 
 private:
@@ -72,13 +72,13 @@ private:
     void createPlainPixelShader();
 
 private:
-    ComPtr<ID3D11Device> device_m;
-    ComPtr<ID3D11DeviceContext> deviceContext_m;
+    ComPtr<ID3D11Device> m_device;
+    ComPtr<ID3D11DeviceContext> m_deviceContext;
 
-    ComPtr<ID3D11SamplerState> discreteSamplerState_m;
-    ComPtr<ID3D11BlendState> alphaBlendState_m;
+    ComPtr<ID3D11SamplerState> m_discreteSamplerState;
+    ComPtr<ID3D11BlendState> m_alphaBlendState;
 
-    ComPtr<ID3D11VertexShader> vertexShader_m;
-    ComPtr<ID3D11InputLayout> inputLayout_m;
-    ComPtr<ID3D11PixelShader> plainPixelShader_m;
+    ComPtr<ID3D11VertexShader> m_vertexShader;
+    ComPtr<ID3D11InputLayout> m_inputLayout;
+    ComPtr<ID3D11PixelShader> m_plainPixelShader;
 };

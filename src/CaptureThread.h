@@ -39,9 +39,9 @@ struct CaptureThread {
     };
 
     CaptureThread(InitArgs &&args) noexcept
-        : callbacks_m(args.callbacks)
-        , display_m(args.display)
-        , index_m(args.threadIndex) {}
+        : m_callbacks(args.callbacks)
+        , m_display(args.display)
+        , m_index(args.threadIndex) {}
 
     [[nodiscard]] auto start(StartArgs &&args) -> std::thread; // start a stopped thread
 
@@ -61,14 +61,14 @@ private:
     auto captureUpdate() -> std::optional<CapturedUpdate>;
 
 private:
-    Callbacks *callbacks_m;
-    int display_m;
-    size_t index_m;
-    FrameContext context_m{};
-    ComPtr<ID3D11Device> device_m;
-    HANDLE threadHandle_m{};
-    bool keepRunning_m = true;
-    bool doCapture_m = true;
+    Callbacks *m_callbacks;
+    int m_display;
+    size_t m_index;
+    FrameContext m_context{};
+    ComPtr<ID3D11Device> m_device;
+    HANDLE m_threadHandle{};
+    bool m_keepRunning = true;
+    bool m_doCapture = true;
 
-    ComPtr<IDXGIOutputDuplication> dupl_m;
+    ComPtr<IDXGIOutputDuplication> m_dupl;
 };

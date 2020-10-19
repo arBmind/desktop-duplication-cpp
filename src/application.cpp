@@ -72,7 +72,7 @@ struct AppImpl : CaptureThread::Callbacks {
         }
         case WM_NCDESTROY: {
             auto app = reinterpret_cast<AppImpl *>(GetWindowLongPtr(window, GWLP_USERDATA));
-            if (app && app->windowHandle_m == window) app->windowHandle_m = {};
+            if (app && app->m_windowHandle == window) app->m_windowHandle = {};
             return app;
         }
         default: return reinterpret_cast<AppImpl *>(GetWindowLongPtr(window, GWLP_USERDATA));
@@ -86,29 +86,29 @@ struct AppImpl : CaptureThread::Callbacks {
         return ::DefWindowProc(window, message, wParam, lParam);
     }
 
-    bool m_armed = false;
-    bool m_dragging = false;
-    bool m_freezed = false;
+    bool m_isWindowPicking = false;
+    bool m_isDragging = false;
+    bool m_isFreezed = false;
     LPARAM m_lastpos = {};
 
-    LRESULT windowProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
+    auto windowProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam) -> LRESULT {
         const auto fallback = [&]() noexcept {
             return ::DefWindowProc(window, message, wParam, lParam);
         };
         if (m_processId != GetCurrentProcessId()) return fallback();
 
-        if (message == taskbarCreatedMessage_m) {
+        if (message == m_taskbarCreatedMessage) {
             createTaskbarToolbar();
             return 0;
         }
 
         switch (message) {
         case WM_CLOSE:
-            if (windowHandle_m == window) PostQuitMessage(0);
+            if (m_windowHandle == window) PostQuitMessage(0);
             break;
 
         case WM_SIZE:
-            if (windowHandle_m == window) {
+            if (m_windowHandle == window) {
                 handleSizeChanged(
                     SIZE{LOWORD(lParam), HIWORD(lParam)}, reinterpret_cast<uint32_t &>(wParam));
             }
@@ -133,13 +133,13 @@ struct AppImpl : CaptureThread::Callbacks {
             // Offset Dragging
         case WM_LBUTTONDOWN:
             if (GET_KEYSTATE_WPARAM(wParam) == (MK_LBUTTON | MK_SHIFT)) {
-                m_dragging = true;
+                m_isDragging = true;
                 m_lastpos = lParam;
             }
             break;
-        case WM_LBUTTONUP: m_dragging = false; break;
+        case WM_LBUTTONUP: m_isDragging = false; break;
         case WM_MOUSEMOVE:
-            if (m_dragging && GET_KEYSTATE_WPARAM(wParam) == (MK_LBUTTON | MK_SHIFT)) {
+            if (m_isDragging && GET_KEYSTATE_WPARAM(wParam) == (MK_LBUTTON | MK_SHIFT)) {
                 const auto delta = POINT{
                     GET_X_LPARAM(lParam) - GET_X_LPARAM(m_lastpos),
                     GET_Y_LPARAM(lParam) - GET_Y_LPARAM(m_lastpos)};
@@ -149,10 +149,10 @@ struct AppImpl : CaptureThread::Callbacks {
             break;
 
             // Fit Other Window
-        case WM_RBUTTONDBLCLK: m_armed ^= true; break;
+        case WM_RBUTTONDBLCLK: m_isWindowPicking ^= true; break;
         case WM_KILLFOCUS:
-            if (m_armed) {
-                m_armed = false;
+            if (m_isWindowPicking) {
+                m_isWindowPicking = false;
                 auto other_window = GetForegroundWindow();
                 fitWindow(other_window);
             }
@@ -226,7 +226,7 @@ struct AppImpl : CaptureThread::Callbacks {
             return fallback();
         }
         case WM_PAINT:
-            if (window == visibleAreaWindow_m) {
+            if (window == m_visibleAreaWindow) {
                 paintVisibleArea();
                 break;
             }
@@ -237,30 +237,30 @@ struct AppImpl : CaptureThread::Callbacks {
     }
 
     void handleWindowSetup(HWND window) {
-        if (!windowHandle_m) {
-            windowHandle_m = window;
-            canStartDuplication_m = true;
-            taskbarList_m = decltype(taskbarList_m)(window);
+        if (!m_windowHandle) {
+            m_windowHandle = window;
+            m_canStartDuplication = true;
+            m_taskbarList = decltype(m_taskbarList)(window);
             toggleVisibleArea();
         }
     }
 
-    bool haveTaskbar = false;
+    bool m_haveTaskbar = false;
     void createTaskbarToolbar() {
-        haveTaskbar = true;
-        taskbarList_m.setButtonFlags(ThumbButton::Maximized, win32::ThumbButtonFlag::Enabled);
-        taskbarList_m.setButtonTooltip(ThumbButton::Maximized, L"toggle fullscreen");
+        m_haveTaskbar = true;
+        m_taskbarList.setButtonFlags(ThumbButton::Maximized, win32::ThumbButtonFlag::Enabled);
+        m_taskbarList.setButtonTooltip(ThumbButton::Maximized, L"toggle fullscreen");
         visualizeMaximized();
 
-        taskbarList_m.setButtonFlags(ThumbButton::Freezed, win32::ThumbButtonFlag::Enabled);
-        taskbarList_m.setButtonTooltip(ThumbButton::Freezed, L"toggle freezed");
+        m_taskbarList.setButtonFlags(ThumbButton::Freezed, win32::ThumbButtonFlag::Enabled);
+        m_taskbarList.setButtonTooltip(ThumbButton::Freezed, L"toggle freezed");
         visualizeFreezed();
 
-        taskbarList_m.setButtonFlags(ThumbButton::VisibleArea, win32::ThumbButtonFlag::Enabled);
-        taskbarList_m.setButtonTooltip(ThumbButton::VisibleArea, L"toggle area");
+        m_taskbarList.setButtonFlags(ThumbButton::VisibleArea, win32::ThumbButtonFlag::Enabled);
+        m_taskbarList.setButtonTooltip(ThumbButton::VisibleArea, L"toggle area");
         visualizeVisibleArea();
 
-        taskbarList_m.updateThumbButtons();
+        m_taskbarList.updateThumbButtons();
     }
 
     bool handleCommand(int command) {
@@ -273,29 +273,29 @@ struct AppImpl : CaptureThread::Callbacks {
     }
 
     void toggleFreezed() {
-        m_freezed ^= 1;
-        if (haveTaskbar) {
+        m_isFreezed ^= 1;
+        if (m_haveTaskbar) {
             visualizeFreezed();
-            taskbarList_m.updateThumbButtons();
+            m_taskbarList.updateThumbButtons();
         }
-        if (!m_freezed) captureNextFrame();
+        if (!m_isFreezed) captureNextFrame();
     }
     void visualizeFreezed() {
-        if (m_freezed) {
-            taskbarList_m.setProgressFlags(win32::ProgressFlag::Paused);
-            taskbarList_m.setProgressValue(1, 1);
-            taskbarList_m.setButtonLetterIcon(1, 0xE768, RGB(100, 255, 100));
+        if (m_isFreezed) {
+            m_taskbarList.setProgressFlags(win32::ProgressFlag::Paused);
+            m_taskbarList.setProgressValue(1, 1);
+            m_taskbarList.setButtonLetterIcon(1, 0xE768, RGB(100, 255, 100));
         }
         else {
-            taskbarList_m.setProgressFlags(win32::ProgressFlag::Normal);
-            taskbarList_m.setProgressValue(1, 1);
-            taskbarList_m.setButtonLetterIcon(1, 0xE103, RGB(255, 200, 10));
+            m_taskbarList.setProgressFlags(win32::ProgressFlag::Normal);
+            m_taskbarList.setProgressValue(1, 1);
+            m_taskbarList.setButtonLetterIcon(1, 0xE103, RGB(255, 200, 10));
         }
     }
 
     constexpr static auto colorKey = RGB(0xFF, 0x20, 0xFF);
     void toggleVisibleArea() {
-        if (nullptr == visibleAreaWindow_m) {
+        if (nullptr == m_visibleAreaWindow) {
             {
                 const DWORD exStyle = WS_EX_LAYERED | WS_EX_TOPMOST;
                 const auto style = WS_POPUP;
@@ -307,11 +307,11 @@ struct AppImpl : CaptureThread::Callbacks {
                            x = rect.left - 2, y = rect.top - 2;
 
                 const auto windowName = nullptr;
-                const auto parentWindow = windowHandle_m;
+                const auto parentWindow = m_windowHandle;
                 const auto menu = HMENU{};
                 const auto customParam = this;
                 const auto instance = GetModuleHandle(nullptr);
-                visibleAreaWindow_m = CreateWindowExW(
+                m_visibleAreaWindow = CreateWindowExW(
                     exStyle,
                     WINDOM_CLASS_NAME,
                     windowName,
@@ -328,47 +328,47 @@ struct AppImpl : CaptureThread::Callbacks {
             {
                 const BYTE alpha = 0u;
                 const BYTE flags = LWA_COLORKEY;
-                SetLayeredWindowAttributes(visibleAreaWindow_m, colorKey, alpha, flags);
+                SetLayeredWindowAttributes(m_visibleAreaWindow, colorKey, alpha, flags);
             }
-            ShowWindow(visibleAreaWindow_m, SW_SHOW);
-            UpdateWindow(visibleAreaWindow_m);
+            ShowWindow(m_visibleAreaWindow, SW_SHOW);
+            UpdateWindow(m_visibleAreaWindow);
         }
         else {
-            DestroyWindow(visibleAreaWindow_m);
-            visibleAreaWindow_m = nullptr;
+            DestroyWindow(m_visibleAreaWindow);
+            m_visibleAreaWindow = nullptr;
         }
-        if (haveTaskbar) {
+        if (m_haveTaskbar) {
             visualizeVisibleArea();
-            taskbarList_m.updateThumbButtons();
+            m_taskbarList.updateThumbButtons();
         }
     }
 
     void visualizeVisibleArea() noexcept {
-        if (visibleAreaWindow_m) {
-            taskbarList_m.setButtonLetterIcon(ThumbButton::VisibleArea, 0xEF20, RGB(128, 128, 128));
+        if (m_visibleAreaWindow) {
+            m_taskbarList.setButtonLetterIcon(ThumbButton::VisibleArea, 0xEF20, RGB(128, 128, 128));
         }
         else {
-            taskbarList_m.setButtonLetterIcon(ThumbButton::VisibleArea, 0xEF20, colorKey);
+            m_taskbarList.setButtonLetterIcon(ThumbButton::VisibleArea, 0xEF20, colorKey);
         }
     }
 
     void updateVisibleArea() noexcept {
-        if (nullptr == visibleAreaWindow_m) return;
+        if (nullptr == m_visibleAreaWindow) return;
 
         const auto rect = visibleAreaRect();
         const auto size = rectSize(rect);
         const auto repaint = true;
         MoveWindow(
-            visibleAreaWindow_m, rect.left - 2, rect.top - 2, size.cx + 4, size.cy + 4, repaint);
+            m_visibleAreaWindow, rect.left - 2, rect.top - 2, size.cx + 4, size.cy + 4, repaint);
     }
 
     void paintVisibleArea() noexcept {
         RECT window_rect;
-        GetClientRect(visibleAreaWindow_m, &window_rect);
+        GetClientRect(m_visibleAreaWindow, &window_rect);
         const auto window_size = rectSize(window_rect);
 
         PAINTSTRUCT p;
-        auto dc = BeginPaint(visibleAreaWindow_m, &p);
+        auto dc = BeginPaint(m_visibleAreaWindow, &p);
 
         SelectObject(dc, GetStockObject(HOLLOW_BRUSH));
         SelectObject(dc, GetStockObject(DC_PEN));
@@ -381,81 +381,81 @@ struct AppImpl : CaptureThread::Callbacks {
         SetDCPenColor(dc, RGB(255, 255, 255));
         Rectangle(dc, 1, 1, window_size.cx - 1, window_size.cy - 1);
 
-        EndPaint(visibleAreaWindow_m, &p);
+        EndPaint(m_visibleAreaWindow, &p);
     }
 
     void handleSizeChanged(const SIZE &, const uint32_t flags) noexcept {
-        if (!duplicationStarted_m) return;
+        if (!m_isDuplicationStarted) return;
         const bool maximized = (flags & SIZE_MAXIMIZED) != 0;
         togglePowerRequest(maximized);
         RECT window_rect{};
         if (maximized)
-            GetWindowRect(windowHandle_m, &window_rect);
+            GetWindowRect(m_windowHandle, &window_rect);
         else
-            GetClientRect(windowHandle_m, &window_rect);
+            GetClientRect(m_windowHandle, &window_rect);
         const auto window_size = rectSize(window_rect);
-        const auto changed = windowRenderer_m.resize(window_size);
+        const auto changed = m_windowRenderer.resize(window_size);
         if (changed) {
-            doRender_m = true;
+            m_doRender = true;
             updateVisibleArea();
         }
     }
 
     void togglePowerRequest(bool enable) noexcept {
-        const auto success = enable ? powerRequest_m.set() : powerRequest_m.clear();
+        const auto success = enable ? m_powerRequest.set() : m_powerRequest.clear();
         if (!success) {
             OutputDebugStringA("Power Request Failed!\n");
         }
     }
 
     void changeZoom(float zoomDelta) noexcept {
-        setZoom(windowRenderer_m.zoom() + zoomDelta);
+        setZoom(m_windowRenderer.zoom() + zoomDelta);
         updateVisibleArea();
     }
     void setZoom(float zoom) noexcept {
-        if (!duplicationStarted_m) return;
-        windowRenderer_m.setZoom(std::max(zoom, 0.05f));
+        if (!m_isDuplicationStarted) return;
+        m_windowRenderer.setZoom(std::max(zoom, 0.05f));
         updateVisibleArea();
-        doRender_m = true;
+        m_doRender = true;
     }
 
     void toggleMaximized() {
         ::ShowWindow(
-            windowHandle_m, IsWindowMaximized(windowHandle_m) ? SW_SHOWNORMAL : SW_MAXIMIZE);
+            m_windowHandle, IsWindowMaximized(m_windowHandle) ? SW_SHOWNORMAL : SW_MAXIMIZE);
         updateVisibleArea();
-        if (haveTaskbar) {
+        if (m_haveTaskbar) {
             visualizeMaximized();
-            taskbarList_m.updateThumbButtons();
+            m_taskbarList.updateThumbButtons();
         }
     }
     void visualizeMaximized() noexcept {
-        if (IsWindowMaximized(windowHandle_m)) {
-            taskbarList_m.setButtonLetterIcon(ThumbButton::Maximized, 0xE923);
+        if (IsWindowMaximized(m_windowHandle)) {
+            m_taskbarList.setButtonLetterIcon(ThumbButton::Maximized, 0xE923);
         }
         else {
-            taskbarList_m.setButtonLetterIcon(ThumbButton::Maximized, 0xE922);
+            m_taskbarList.setButtonLetterIcon(ThumbButton::Maximized, 0xE922);
         }
     }
 
     void moveTexture(POINT delta) noexcept {
-        windowRenderer_m.moveOffset(delta);
+        m_windowRenderer.moveOffset(delta);
         updateVisibleArea();
-        doRender_m = true;
+        m_doRender = true;
     }
     void moveTextureTo(int x, int y) {
-        windowRenderer_m.moveToBorder(x, y);
+        m_windowRenderer.moveToBorder(x, y);
         updateVisibleArea();
-        doRender_m = true;
+        m_doRender = true;
     }
 
     RECT visibleAreaRect() noexcept {
         RECT window_rect;
-        GetClientRect(windowHandle_m, &window_rect);
+        GetClientRect(m_windowHandle, &window_rect);
         const auto window_size = rectSize(window_rect);
-        const auto zoom = windowRenderer_m.zoom();
-        const auto renderOffset = windowRenderer_m.offset();
-        const auto left = offset_m.x - renderOffset.x;
-        const auto top = offset_m.y - renderOffset.y;
+        const auto zoom = m_windowRenderer.zoom();
+        const auto renderOffset = m_windowRenderer.offset();
+        const auto left = m_offset.x - renderOffset.x;
+        const auto top = m_offset.y - renderOffset.y;
         const auto width = static_cast<long>(window_size.cx / zoom);
         const auto height = static_cast<long>(window_size.cy / zoom);
         return RECT{left, top, left + width, top + height};
@@ -496,7 +496,7 @@ struct AppImpl : CaptureThread::Callbacks {
         return atom;
     }
 
-    HWND createMainWindow(HINSTANCE instanceHandle, int showCommand) {
+    auto createMainWindow(HINSTANCE instanceHandle, int showCommand) -> HWND {
         const auto wA = WindowWorkArea();
         const auto wS = rectSize(wA);
         const auto rect = RECT{wA.right - wS.cx / 2, 0, wA.right, wA.bottom - wS.cy / 2};
@@ -532,11 +532,11 @@ struct AppImpl : CaptureThread::Callbacks {
     }
 
     static void CALLBACK setErrorAPC(ULONG_PTR parameter) {
-        auto args = unique_tuple_ptr<AppImpl *, std::exception_ptr>(parameter);
+        auto args = unique_tuple_ptr_cast<AppImpl *, std::exception_ptr>(parameter);
         std::get<AppImpl *>(*args)->updateError(std::get<1>(*args));
     }
     static void CALLBACK setFrameAPC(ULONG_PTR parameter) {
-        auto args = unique_tuple_ptr<
+        auto args = unique_tuple_ptr_cast<
             AppImpl *,
             CapturedUpdate,
             std::reference_wrapper<FrameContext>,
@@ -547,12 +547,12 @@ struct AppImpl : CaptureThread::Callbacks {
     static void CALLBACK
     retryDuplicationAPC(LPVOID parameter, DWORD dwTimerLowValue, DWORD dwTimerHighValue) noexcept {
         auto self = static_cast<AppImpl *>(parameter);
-        self->canStartDuplication_m = true;
+        self->m_canStartDuplication = true;
     }
     static void CALLBACK
     awaitFrameAPC(LPVOID parameter, DWORD dwTimerLowValue, DWORD dwTimerHighValue) noexcept {
         auto self = static_cast<AppImpl *>(parameter);
-        self->waitFrame_m = false;
+        self->m_waitFrame = false;
     }
 
     void initCaptureThreads() {
@@ -560,26 +560,26 @@ struct AppImpl : CaptureThread::Callbacks {
             CaptureThread::InitArgs args;
             args.callbacks = this;
             args.display = display;
-            args.threadIndex = captureThreads_m.size();
-            captureThreads_m.emplace_back(std::make_unique<CaptureThread>(std::move(args)));
+            args.threadIndex = m_captureThreads.size();
+            m_captureThreads.emplace_back(std::make_unique<CaptureThread>(std::move(args)));
         }
-        threads_m.reserve(m_config.displays.size());
+        m_threads.reserve(m_config.displays.size());
     }
 
     int run() {
         try {
             registerWindowClass(m_config.instanceHandle);
-            taskbarCreatedMessage_m = RegisterWindowMessageW(L"TaskbarButtonCreated");
+            m_taskbarCreatedMessage = RegisterWindowMessageW(L"TaskbarButtonCreated");
 
-            ChangeWindowMessageFilter(taskbarCreatedMessage_m, MSGFLT_ADD);
+            ChangeWindowMessageFilter(m_taskbarCreatedMessage, MSGFLT_ADD);
             ChangeWindowMessageFilter(WM_COMMAND, MSGFLT_ADD);
-            threadHandle_m = GetCurrentThreadHandle();
-            LATER(CloseHandle(threadHandle_m));
-            powerRequest_m = decltype(powerRequest_m)(L"Desktop Duplication Tool");
-            retryTimer_m = CreateWaitableTimer(nullptr, false, TEXT("RetryTimer"));
-            LATER(CloseHandle(retryTimer_m));
-            frameTimer_m = CreateWaitableTimer(nullptr, false, TEXT("FrameTimer"));
-            LATER(CloseHandle(frameTimer_m));
+            m_threadHandle = GetCurrentThreadHandle();
+            LATER(CloseHandle(m_threadHandle));
+            m_powerRequest = decltype(m_powerRequest)(L"Desktop Duplication Tool");
+            m_retryTimer = CreateWaitableTimer(nullptr, false, TEXT("RetryTimer"));
+            LATER(CloseHandle(m_retryTimer));
+            m_frameTimer = CreateWaitableTimer(nullptr, false, TEXT("FrameTimer"));
+            LATER(CloseHandle(m_frameTimer));
 
             createMainWindow(m_config.instanceHandle, m_config.showCommand);
             initCaptureThreads();
@@ -594,27 +594,27 @@ struct AppImpl : CaptureThread::Callbacks {
     }
 
     int mainLoop() {
-        while (keepRunning_m) {
+        while (m_keepRunning) {
             try {
-                if (!canStartDuplication_m) {
+                if (!m_canStartDuplication) {
                     sleep();
                     continue;
                 }
                 startDuplication();
-                taskbarList_m.setProgressFlags(win32::ProgressFlag::Normal);
-                taskbarList_m.setProgressValue(1, 1);
+                m_taskbarList.setProgressFlags(win32::ProgressFlag::Normal);
+                m_taskbarList.setProgressValue(1, 1);
             }
             catch (Expected &e) {
                 OutputDebugStringA(e.text);
                 OutputDebugStringA("\n");
-                taskbarList_m.setProgressFlags(win32::ProgressFlag::Error);
-                taskbarList_m.setProgressValue(1, 3);
+                m_taskbarList.setProgressFlags(win32::ProgressFlag::Error);
+                m_taskbarList.setProgressValue(1, 3);
                 stopDuplication();
                 awaitRetry();
                 continue;
             }
             try {
-                while (keepRunning_m && duplicationStarted_m && !hasError_m) {
+                while (m_keepRunning && m_isDuplicationStarted && !m_hasError) {
                     render();
                     sleep();
                 }
@@ -623,19 +623,19 @@ struct AppImpl : CaptureThread::Callbacks {
             catch (Expected &e) {
                 OutputDebugStringA(e.text);
                 OutputDebugStringA("\n");
-                taskbarList_m.setProgressFlags(win32::ProgressFlag::Error);
-                taskbarList_m.setProgressValue(2, 3);
-                error_m = {};
+                m_taskbarList.setProgressFlags(win32::ProgressFlag::Error);
+                m_taskbarList.setProgressValue(2, 3);
+                m_error = {};
                 stopDuplication();
             }
         }
         stopDuplication();
-        return returnValue_m;
+        return m_returnValue;
     }
 
     void startDuplication() {
-        if (duplicationStarted_m) return;
-        duplicationStarted_m = true;
+        if (m_isDuplicationStarted) return;
+        m_isDuplicationStarted = true;
         try {
             auto deviceValue = renderer::createDevice();
             auto device = deviceValue.device;
@@ -643,19 +643,19 @@ struct AppImpl : CaptureThread::Callbacks {
 
             auto dimensions = renderer::getDimensionData(device, m_config.displays);
 
-            target_m = renderer::createSharedTexture(device, rectSize(dimensions.rect));
-            windowRenderer_m.init([&]() noexcept {
+            m_target = renderer::createSharedTexture(device, rectSize(dimensions.rect));
+            m_windowRenderer.init([&]() noexcept {
                 auto args = WindowRenderer::InitArgs{};
-                args.windowHandle = windowHandle_m;
-                args.texture = target_m;
+                args.windowHandle = m_windowHandle;
+                args.texture = m_target;
                 args.device = device;
                 args.deviceContext = deviceContext;
                 return args;
             }());
-            offset_m = POINT{dimensions.rect.left, dimensions.rect.top};
-            auto handle = renderer::getSharedHandle(target_m);
-            for (const auto &capture : captureThreads_m) {
-                startCaptureThread(*capture, offset_m, handle);
+            m_offset = POINT{dimensions.rect.left, dimensions.rect.top};
+            auto handle = renderer::getSharedHandle(m_target);
+            for (const auto &capture : m_captureThreads) {
+                startCaptureThread(*capture, m_offset, handle);
             }
         }
         catch (const renderer::Error &e) {
@@ -672,45 +672,45 @@ struct AppImpl : CaptureThread::Callbacks {
         updater_args.device = device;
         updater_args.deviceContext = deviceContext;
         updater_args.targetHandle = targetHandle;
-        frameUpdaters_m.emplace_back(std::move(updater_args));
+        m_frameUpdaters.emplace_back(std::move(updater_args));
 
         CaptureThread::StartArgs threadArgs;
         threadArgs.device = device;
         threadArgs.offset = offset;
-        threads_m.emplace_back(capture.start(std::move(threadArgs)));
+        m_threads.emplace_back(capture.start(std::move(threadArgs)));
     }
 
     void stopDuplication() {
-        if (!duplicationStarted_m) return;
+        if (!m_isDuplicationStarted) return;
         try {
-            for (const auto &capture : captureThreads_m) {
+            for (const auto &capture : m_captureThreads) {
                 capture->stop();
             }
-            for (auto &thread : threads_m) {
+            for (auto &thread : m_threads) {
                 thread.join();
             }
-            threads_m.clear();
-            target_m.Reset();
-            frameUpdaters_m.clear();
-            updatedThreads_m.clear();
-            windowRenderer_m.reset();
+            m_threads.clear();
+            m_target.Reset();
+            m_frameUpdaters.clear();
+            m_updatedThreads.clear();
+            m_windowRenderer.reset();
         }
         catch (Expected &e) {
             OutputDebugStringA("stopDuplication Threw: ");
             OutputDebugStringA(e.text);
             OutputDebugStringA("\n");
         }
-        duplicationStarted_m = false;
+        m_isDuplicationStarted = false;
     }
 
     void render() {
-        if (waitFrame_m || !doRender_m) return;
-        doRender_m = false;
-        ShowWindowBorder(windowHandle_m, !IsWindowMaximized(windowHandle_m));
+        if (m_waitFrame || !m_doRender) return;
+        m_doRender = false;
+        ShowWindowBorder(m_windowHandle, !IsWindowMaximized(m_windowHandle));
         try {
-            windowRenderer_m.render();
-            windowRenderer_m.renderPointer(pointerUpdater_m.data());
-            windowRenderer_m.swap();
+            m_windowRenderer.render();
+            m_windowRenderer.renderPointer(m_pointerUpdater.data());
+            m_windowRenderer.swap();
             captureNextFrame();
             awaitNextFrame();
             updateVisibleArea();
@@ -721,35 +721,35 @@ struct AppImpl : CaptureThread::Callbacks {
     }
 
     void captureNextFrame() {
-        if (m_freezed) return;
-        for (auto index : updatedThreads_m) captureThreads_m[index]->next();
-        updatedThreads_m.clear();
+        if (m_isFreezed) return;
+        for (auto index : m_updatedThreads) m_captureThreads[index]->next();
+        m_updatedThreads.clear();
     }
 
     void awaitNextFrame() {
-        if (!waitFrame_m) {
-            waitFrame_m = true;
+        if (!m_waitFrame) {
+            m_waitFrame = true;
             LARGE_INTEGER queueTime;
             queueTime.QuadPart = -10 * 1000 * 10; // relative 10 ms
             const auto noPeriod = 0;
             const auto apcArgument = this;
             const auto awakeSuspend = false;
             const auto success = SetWaitableTimer(
-                retryTimer_m, &queueTime, noPeriod, awaitFrameAPC, apcArgument, awakeSuspend);
+                m_retryTimer, &queueTime, noPeriod, awaitFrameAPC, apcArgument, awakeSuspend);
             if (!success) throw Unexpected{"failed to arm frame timer"};
         }
     }
 
     void awaitRetry() {
-        if (canStartDuplication_m) {
-            canStartDuplication_m = false;
+        if (m_canStartDuplication) {
+            m_canStartDuplication = false;
             LARGE_INTEGER queueTime;
             queueTime.QuadPart = -250 * 1000 * 10; // relative 250 ms
             const auto noPeriod = 0;
             const auto apcArgument = this;
             const auto awakeSuspend = false;
             const auto success = SetWaitableTimer(
-                frameTimer_m, &queueTime, noPeriod, retryDuplicationAPC, apcArgument, awakeSuspend);
+                m_frameTimer, &queueTime, noPeriod, retryDuplicationAPC, apcArgument, awakeSuspend);
             if (!success) throw Unexpected{"failed to arm retry timer"};
         }
     }
@@ -757,10 +757,10 @@ struct AppImpl : CaptureThread::Callbacks {
     void sleep(unsigned int timeout = INFINITE) {
         const auto wake_mask = QS_ALLINPUT;
         const auto flags = MWMO_ALERTABLE | MWMO_INPUTAVAILABLE;
-        const auto handle_count = handles_m.size();
+        const auto handle_count = m_handles.size();
         const auto awoken = MsgWaitForMultipleObjectsEx(
             reinterpret_cast<const uint32_t &>(handle_count),
-            handles_m.data(),
+            m_handles.data(),
             timeout,
             wake_mask,
             flags);
@@ -776,67 +776,67 @@ struct AppImpl : CaptureThread::Callbacks {
             TranslateMessage(&message);
             DispatchMessage(&message);
             if (WM_QUIT == message.message) {
-                keepRunning_m = false;
-                returnValue_m = reinterpret_cast<int &>(message.wParam);
+                m_keepRunning = false;
+                m_returnValue = reinterpret_cast<int &>(message.wParam);
             }
         }
     }
 
     void rethrow() {
-        if (!hasError_m) return;
-        hasError_m = false;
-        std::rethrow_exception(error_m);
+        if (!m_hasError) return;
+        m_hasError = false;
+        std::rethrow_exception(m_error);
     }
 
     void updateError(const std::exception_ptr &exception) noexcept {
-        error_m = exception;
-        hasError_m = true;
+        m_error = exception;
+        m_hasError = true;
     }
     void updateFrame(CapturedUpdate &update, const FrameContext &context, size_t threadIndex) {
-        if (!duplicationStarted_m) return;
-        frameUpdaters_m[threadIndex].update(update.frame, context);
-        pointerUpdater_m.update(update.pointer, context);
-        updatedThreads_m.push_back(threadIndex);
-        doRender_m = true;
+        if (!m_isDuplicationStarted) return;
+        m_frameUpdaters[threadIndex].update(update.frame, context);
+        m_pointerUpdater.update(update.pointer, context);
+        m_updatedThreads.push_back(threadIndex);
+        m_doRender = true;
     }
 
 private:
     Config m_config;
     DWORD m_processId{};
-    HWND windowHandle_m{};
-    UINT taskbarCreatedMessage_m{};
-    win32::PowerRequest<PowerRequestDisplayRequired, PowerRequestSystemRequired> powerRequest_m;
-    win32::TaskbarList taskbarList_m;
-    HANDLE retryTimer_m{};
-    HANDLE frameTimer_m{};
+    HWND m_windowHandle{};
+    UINT m_taskbarCreatedMessage{};
+    win32::PowerRequest<PowerRequestDisplayRequired, PowerRequestSystemRequired> m_powerRequest;
+    win32::TaskbarList m_taskbarList;
+    HANDLE m_retryTimer{};
+    HANDLE m_frameTimer{};
 
 public:
-    HANDLE threadHandle_m;
+    HANDLE m_threadHandle;
 
 private:
-    bool canStartDuplication_m = false;
-    bool duplicationStarted_m = false;
-    bool keepRunning_m = true;
-    int returnValue_m = 0;
-    bool hasError_m = false;
-    std::exception_ptr error_m;
-    bool waitFrame_m = false;
-    bool doRender_m = false;
+    bool m_canStartDuplication = false;
+    bool m_isDuplicationStarted = false;
+    bool m_keepRunning = true;
+    int m_returnValue = 0;
+    bool m_hasError = false;
+    std::exception_ptr m_error;
+    bool m_waitFrame = false;
+    bool m_doRender = false;
 
-    POINT offset_m;
-    WindowRenderer windowRenderer_m;
-    ComPtr<ID3D11Texture2D> target_m;
-    std::vector<FrameUpdater> frameUpdaters_m;
-    PointerUpdater pointerUpdater_m;
+    POINT m_offset;
+    WindowRenderer m_windowRenderer;
+    ComPtr<ID3D11Texture2D> m_target;
+    std::vector<FrameUpdater> m_frameUpdaters;
+    PointerUpdater m_pointerUpdater;
 
     using capture_thread_ptr = std::unique_ptr<CaptureThread>;
 
-    std::vector<HANDLE> handles_m;
-    std::vector<std::thread> threads_m;
-    std::vector<capture_thread_ptr> captureThreads_m;
-    std::vector<size_t> updatedThreads_m;
+    std::vector<HANDLE> m_handles;
+    std::vector<std::thread> m_threads;
+    std::vector<capture_thread_ptr> m_captureThreads;
+    std::vector<size_t> m_updatedThreads;
 
-    HWND visibleAreaWindow_m = nullptr;
+    HWND m_visibleAreaWindow = nullptr;
 };
 
 } // namespace
@@ -857,9 +857,9 @@ void CaptureThread::Callbacks::setError(std::exception_ptr Error) //
 {
     auto self = reinterpret_cast<AppImpl *>(this);
 
-    const auto parameter = make_tuple_ptr(self, Error);
+    auto parameter = make_tuple_ptr(self, Error);
     const auto success = QueueUserAPC(
-        AppImpl::setErrorAPC, self->threadHandle_m, reinterpret_cast<ULONG_PTR>(parameter));
+        AppImpl::setErrorAPC, self->m_threadHandle, ulong_ptr_cast(std::move(parameter)));
     if (!success) throw Unexpected{"api::setError failed to queue APC"};
 }
 
@@ -869,9 +869,9 @@ void CaptureThread::Callbacks::setFrame(
 {
     auto self = reinterpret_cast<AppImpl *>(this);
 
-    const auto parameter = make_tuple_ptr(self, std::move(frame), std::ref(context), thread_index);
+    auto parameter = make_tuple_ptr(self, std::move(frame), std::ref(context), thread_index);
     const auto success = QueueUserAPC(
-        AppImpl::setFrameAPC, self->threadHandle_m, reinterpret_cast<ULONG_PTR>(parameter));
+        AppImpl::setFrameAPC, self->m_threadHandle, ulong_ptr_cast(std::move(parameter)));
     if (!success) throw Unexpected{"api::setError failed to queue APC"};
 }
 

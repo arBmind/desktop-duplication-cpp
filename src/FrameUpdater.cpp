@@ -31,7 +31,7 @@ auto rotate(const RECT &rect, DXGI_MODE_ROTATION rotation, const SIZE &size) noe
 } // namespace
 
 FrameUpdater::FrameUpdater(InitArgs &&args)
-    : dx_m(std::move(args)) {}
+    : m_dx(std::move(args)) {}
 
 void FrameUpdater::update(const FrameUpdate &data, const FrameContext &context) {
     performMoves(data, context);
@@ -44,9 +44,9 @@ void FrameUpdater::performMoves(const FrameUpdate &data, const FrameContext &con
 
     const auto desktop_size = rectSize(context.output_desc.DesktopCoordinates);
 
-    if (!dx_m.moveTmp_m) {
+    if (!m_dx.moveTmp) {
         D3D11_TEXTURE2D_DESC target_description;
-        dx_m.target_m->GetDesc(&target_description);
+        m_dx.target->GetDesc(&target_description);
 
         D3D11_TEXTURE2D_DESC move_description;
         move_description = target_description;
@@ -56,7 +56,7 @@ void FrameUpdater::performMoves(const FrameUpdate &data, const FrameContext &con
         move_description.BindFlags = D3D11_BIND_RENDER_TARGET;
         move_description.MiscFlags = 0;
         const auto result =
-            dx_m.device()->CreateTexture2D(&move_description, nullptr, &dx_m.moveTmp_m);
+            m_dx.device()->CreateTexture2D(&move_description, nullptr, &m_dx.moveTmp);
         if (IS_ERROR(result))
             throw RenderFailure(result, "Failed to create move temporary texture");
     }
@@ -78,21 +78,21 @@ void FrameUpdater::performMoves(const FrameUpdate &data, const FrameContext &con
         box.bottom = source.bottom + target_y;
         box.back = 1;
 
-        dx_m.deviceContext()->CopySubresourceRegion(
-            dx_m.moveTmp_m.Get(), 0, source.left, source.top, 0, dx_m.target_m.Get(), 0, &box);
+        m_dx.deviceContext()->CopySubresourceRegion(
+            m_dx.moveTmp.Get(), 0, source.left, source.top, 0, m_dx.target.Get(), 0, &box);
 
         box.left = source.left;
         box.top = source.top;
         box.right = source.right;
         box.bottom = source.bottom;
 
-        dx_m.deviceContext()->CopySubresourceRegion(
-            dx_m.target_m.Get(),
+        m_dx.deviceContext()->CopySubresourceRegion(
+            m_dx.target.Get(),
             0,
             dest.left + target_x,
             dest.top + target_y,
             0,
-            dx_m.moveTmp_m.Get(),
+            m_dx.moveTmp.Get(),
             0,
             &box);
     }
@@ -104,11 +104,11 @@ void FrameUpdater::updateDirty(const FrameUpdate &data, const FrameContext &cont
 
     const auto desktop = gsl::not_null<ID3D11Texture2D *>(data.image.Get());
 
-    ComPtr<ID3D11ShaderResourceView> shader_resource = dx_m.createShaderTexture(desktop);
-    dx_m.deviceContext()->PSSetShaderResources(0, 1, shader_resource.GetAddressOf());
+    ComPtr<ID3D11ShaderResourceView> shader_resource = m_dx.createShaderTexture(desktop);
+    m_dx.deviceContext()->PSSetShaderResources(0, 1, shader_resource.GetAddressOf());
 
     D3D11_TEXTURE2D_DESC target_description;
-    dx_m.target_m->GetDesc(&target_description);
+    m_dx.target->GetDesc(&target_description);
 
     D3D11_TEXTURE2D_DESC desktop_description;
     desktop->GetDesc(&desktop_description);
@@ -129,8 +129,8 @@ void FrameUpdater::updateDirty(const FrameUpdate &data, const FrameContext &cont
             y / static_cast<float>(desktop_description.Height)};
     };
 
-    dirtyQuads_m.reserve(dirts.size());
-    dirtyQuads_m.clear();
+    m_dirtyQuads.reserve(dirts.size());
+    m_dirtyQuads.clear();
     for (const auto &dirt : dirts) {
         const auto rotated = rotate(dirt, rotation, desktop_size);
         quad_vertices vertices;
@@ -142,7 +142,7 @@ void FrameUpdater::updateDirty(const FrameUpdate &data, const FrameContext &cont
         vertices[4] = vertices[1];
         vertices[5] = make_vertex(rotated.right, rotated.top);
 
-        dirtyQuads_m.push_back(vertices);
+        m_dirtyQuads.push_back(vertices);
     }
 
     D3D11_BUFFER_DESC buffer_description;
@@ -155,16 +155,16 @@ void FrameUpdater::updateDirty(const FrameUpdate &data, const FrameContext &cont
 
     D3D11_SUBRESOURCE_DATA init_data;
     RtlZeroMemory(&init_data, sizeof(init_data));
-    init_data.pSysMem = dirtyQuads_m.data();
+    init_data.pSysMem = m_dirtyQuads.data();
 
     ComPtr<ID3D11Buffer> vertex_buffer;
     const auto result =
-        dx_m.device()->CreateBuffer(&buffer_description, &init_data, &vertex_buffer);
+        m_dx.device()->CreateBuffer(&buffer_description, &init_data, &vertex_buffer);
     if (IS_ERROR(result)) throw RenderFailure(result, "Failed to create dirty vertex buffer");
 
     const uint32_t stride = sizeof(Vertex);
     const uint32_t offset = 0;
-    dx_m.deviceContext()->IASetVertexBuffers(0, 1, vertex_buffer.GetAddressOf(), &stride, &offset);
+    m_dx.deviceContext()->IASetVertexBuffers(0, 1, vertex_buffer.GetAddressOf(), &stride, &offset);
 
     D3D11_VIEWPORT view_port;
     view_port.Width = static_cast<FLOAT>(target_description.Width);
@@ -173,15 +173,15 @@ void FrameUpdater::updateDirty(const FrameUpdate &data, const FrameContext &cont
     view_port.MaxDepth = 1.0f;
     view_port.TopLeftX = 0.0f;
     view_port.TopLeftY = 0.0f;
-    dx_m.deviceContext()->RSSetViewports(1, &view_port);
+    m_dx.deviceContext()->RSSetViewports(1, &view_port);
 
     [[gsl::suppress("26472")]] // conversion required because of APIs
-    dx_m.deviceContext()
+    m_dx.deviceContext()
         ->Draw(static_cast<uint32_t>(6 * dirts.size()), 0);
 
     // dx_m.activateNoRenderTarget();
     ID3D11ShaderResourceView *noResource = nullptr;
-    dx_m.deviceContext()->PSSetShaderResources(0, 1, &noResource);
+    m_dx.deviceContext()->PSSetShaderResources(0, 1, &noResource);
 }
 
 FrameUpdater::Resources::Resources(FrameUpdater::InitArgs &&args)
@@ -197,6 +197,6 @@ FrameUpdater::Resources::Resources(FrameUpdater::InitArgs &&args)
 }
 
 void FrameUpdater::Resources::prepare(HANDLE targetHandle) {
-    target_m = renderer::getTextureFromHandle(device(), targetHandle);
-    renderTarget_m = renderer::renderToTexture(device(), target_m);
+    target = renderer::getTextureFromHandle(device(), targetHandle);
+    renderTarget = renderer::renderToTexture(device(), target);
 }

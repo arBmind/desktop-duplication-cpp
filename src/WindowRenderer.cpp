@@ -12,73 +12,73 @@
 using Error = renderer::Error;
 
 void WindowRenderer::init(InitArgs &&args) {
-    dx_m.emplace(std::move(args));
-    windowHandle_m = args.windowHandle;
+    m_dx.emplace(std::move(args));
+    m_windowHandle = args.windowHandle;
 
     RECT rect;
-    GetClientRect(windowHandle_m, &rect);
-    size_m = rectSize(rect);
+    GetClientRect(m_windowHandle, &rect);
+    m_size = rectSize(rect);
 }
 
-void WindowRenderer::reset() noexcept { dx_m.reset(); }
+void WindowRenderer::reset() noexcept { m_dx.reset(); }
 
 bool WindowRenderer::resize(SIZE size) noexcept {
-    if (size.cx == size_m.cx && size.cy == size_m.cy) return false;
-    size_m = size;
-    pendingResizeBuffers_m = true;
+    if (size.cx == m_size.cx && size.cy == m_size.cy) return false;
+    m_size = size;
+    m_pendingResizeBuffers = true;
     return true;
 }
 
 void WindowRenderer::setZoom(float zoom) noexcept {
-    if (zoom_m == zoom) return;
-    zoom_m = zoom;
+    if (m_zoom == zoom) return;
+    m_zoom = zoom;
 }
 
 void WindowRenderer::moveOffset(POINT delta) noexcept {
     if (delta.x == 0 && delta.y == 0) return;
     const auto offset = Vec2f{
-        offset_m.x + static_cast<float>(delta.x) / zoom_m,
-        offset_m.y + static_cast<float>(delta.y) / zoom_m};
-    offset_m = offset;
+        m_offset.x + static_cast<float>(delta.x) / m_zoom,
+        m_offset.y + static_cast<float>(delta.y) / m_zoom};
+    m_offset = offset;
 }
 
 void WindowRenderer::moveToBorder(int x, int y) {
-    auto next = offset_m;
+    auto next = m_offset;
 
-    const auto &dx = *dx_m;
+    const auto &dx = *m_dx;
     D3D11_TEXTURE2D_DESC texture_description;
-    dx.backgroundTexture_m->GetDesc(&texture_description);
+    dx.backgroundTexture->GetDesc(&texture_description);
 
     if (0 > x)
         next.x = 0;
     else if (0 < x)
-        next.x = -static_cast<float>(texture_description.Width) + (size_m.cx / zoom_m);
+        next.x = -static_cast<float>(texture_description.Width) + (m_size.cx / m_zoom);
 
     if (0 > y)
         next.y = 0;
     else if (0 < y)
-        next.y = -static_cast<float>(texture_description.Height) + (size_m.cy / zoom_m);
+        next.y = -static_cast<float>(texture_description.Height) + (m_size.cy / m_zoom);
 
     moveTo(next);
 }
 
 void WindowRenderer::moveTo(Vec2f offset) noexcept {
-    if (offset.x == offset_m.x && offset.y == offset_m.y) return;
-    offset_m = offset;
+    if (offset.x == m_offset.x && offset.y == m_offset.y) return;
+    m_offset = offset;
 }
 
 void WindowRenderer::render() {
-    auto &dx = *dx_m;
-    if (pendingResizeBuffers_m) {
-        pendingResizeBuffers_m = false;
-        dx.renderTarget_m.Reset();
+    auto &dx = *m_dx;
+    if (m_pendingResizeBuffers) {
+        m_pendingResizeBuffers = false;
+        dx.renderTarget.Reset();
         resizeSwapBuffer();
         dx.createRenderTarget();
     }
 
     dx.clearRenderTarget({0, 0, 0, 0});
 
-    dx.deviceContext()->GenerateMips(dx.backgroundTextureShaderResource_m.Get());
+    dx.deviceContext()->GenerateMips(dx.backgroundTextureShaderResource.Get());
 
     setViewPort();
     dx.activateRenderTarget();
@@ -100,7 +100,7 @@ void WindowRenderer::renderPointer(const PointerBuffer &pointer) {
     if (!pointer.visible) return;
     updatePointerVertices(pointer);
 
-    auto &dx = *dx_m;
+    auto &dx = *m_dx;
     dx.activatePointerVertexBuffer();
 
     if (pointer.shape_info.Type == DXGI_OUTDUPL_POINTER_SHAPE_TYPE_COLOR) {
@@ -120,45 +120,45 @@ void WindowRenderer::renderPointer(const PointerBuffer &pointer) {
 }
 
 void WindowRenderer::swap() {
-    const auto &dx = *dx_m;
+    const auto &dx = *m_dx;
     dx.activateNoRenderTarget();
 
-    const auto result = dx.swapChain_m->Present(1, 0);
+    const auto result = dx.swapChain->Present(1, 0);
     if (IS_ERROR(result)) throw Error{result, "Failed to swap buffers"};
 }
 
 void WindowRenderer::resizeSwapBuffer() {
-    const auto &dx = *dx_m;
+    const auto &dx = *m_dx;
     DXGI_SWAP_CHAIN_DESC description;
-    dx.swapChain_m->GetDesc(&description);
-    const auto result = dx.swapChain_m->ResizeBuffers(
+    dx.swapChain->GetDesc(&description);
+    const auto result = dx.swapChain->ResizeBuffers(
         description.BufferCount,
-        size_m.cx,
-        size_m.cy,
+        m_size.cx,
+        m_size.cy,
         description.BufferDesc.Format,
         description.Flags);
     if (IS_ERROR(result)) throw Error{result, "Failed to resize swap buffers"};
 }
 
 void WindowRenderer::setViewPort() {
-    const auto &dx = *dx_m;
+    const auto &dx = *m_dx;
     D3D11_TEXTURE2D_DESC texture_description;
-    dx.backgroundTexture_m->GetDesc(&texture_description);
+    dx.backgroundTexture->GetDesc(&texture_description);
 
     D3D11_VIEWPORT view_port;
-    view_port.Width = static_cast<float>(texture_description.Width) * zoom_m;
-    view_port.Height = static_cast<float>(texture_description.Height) * zoom_m;
+    view_port.Width = static_cast<float>(texture_description.Width) * m_zoom;
+    view_port.Height = static_cast<float>(texture_description.Height) * m_zoom;
     view_port.MinDepth = 0.0f;
     view_port.MaxDepth = 1.0f;
-    view_port.TopLeftX = static_cast<float>(offset_m.x) * zoom_m;
-    view_port.TopLeftY = static_cast<float>(offset_m.y) * zoom_m;
+    view_port.TopLeftX = static_cast<float>(m_offset.x) * m_zoom;
+    view_port.TopLeftY = static_cast<float>(m_offset.y) * m_zoom;
 
     dx.deviceContext()->RSSetViewports(1, &view_port);
 }
 
 void WindowRenderer::updatePointerShape(const PointerBuffer &pointer) {
-    if (pointer.shape_timestamp == lastPointerShapeUpdate_m) return;
-    lastPointerShapeUpdate_m = pointer.shape_timestamp;
+    if (pointer.shape_timestamp == m_lastPointerShapeUpdate) return;
+    m_lastPointerShapeUpdate = pointer.shape_timestamp;
 
     D3D11_TEXTURE2D_DESC texture_description;
     texture_description.Width = pointer.shape_info.Width;
@@ -229,9 +229,9 @@ void WindowRenderer::updatePointerShape(const PointerBuffer &pointer) {
     //	}
     //}
 
-    auto &dx = *dx_m;
+    auto &dx = *m_dx;
     auto result =
-        dx.device()->CreateTexture2D(&texture_description, &resource_data, &dx.pointerTexture_m);
+        dx.device()->CreateTexture2D(&texture_description, &resource_data, &dx.pointerTexture);
 
     D3D11_SHADER_RESOURCE_VIEW_DESC shader_resource_description;
     shader_resource_description.Format = texture_description.Format;
@@ -240,16 +240,15 @@ void WindowRenderer::updatePointerShape(const PointerBuffer &pointer) {
     shader_resource_description.Texture2D.MipLevels = texture_description.MipLevels;
 
     result = dx.device()->CreateShaderResourceView(
-        dx.pointerTexture_m.Get(),
-        &shader_resource_description,
-        &dx.pointerTextureShaderResource_m);
+        dx.pointerTexture.Get(), &shader_resource_description, &dx.pointerTextureShaderResource);
+    if (IS_ERROR(result)) throw Error{result, "Failed to create pointer shader resource"};
 }
 
 void WindowRenderer::updatePointerVertices(const PointerBuffer &pointer) {
-    if (pointer.position_timestamp == lastPointerPositionUpdate_m) return;
-    lastPointerPositionUpdate_m = pointer.position_timestamp;
+    if (pointer.position_timestamp == m_lastPointerPositionUpdate) return;
+    m_lastPointerPositionUpdate = pointer.position_timestamp;
 
-    const auto &dx = *dx_m;
+    const auto &dx = *m_dx;
 
     Vertex vertices[] = {
         Vertex{-1.0f, -1.0f, 0.0f, 1.0f},
@@ -260,7 +259,7 @@ void WindowRenderer::updatePointerVertices(const PointerBuffer &pointer) {
         Vertex{1.0f, 1.0f, 1.0f, 0.0f}};
 
     D3D11_TEXTURE2D_DESC texture_description;
-    dx.backgroundTexture_m->GetDesc(&texture_description);
+    dx.backgroundTexture->GetDesc(&texture_description);
 
     const auto texture_size = SIZE{
         gsl::narrow_cast<int>(texture_description.Width),
@@ -287,12 +286,12 @@ void WindowRenderer::updatePointerVertices(const PointerBuffer &pointer) {
     mouse_to_desktop(vertices[5], size.cx, 0);
 
     dx.deviceContext()->UpdateSubresource(
-        dx.pointerVertexBuffer_m.Get(), 0, nullptr, &vertices[0], 0, 0);
+        dx.pointerVertexBuffer.Get(), 0, nullptr, &vertices[0], 0, 0);
 }
 
 WindowRenderer::Resources::Resources(WindowRenderer::InitArgs &&args)
     : BaseRenderer(std::move(args))
-    , backgroundTexture_m(std::move(args.texture)) {
+    , backgroundTexture(std::move(args.texture)) {
 
     createBackgroundTextureShaderResource();
     createBackgroundVertexBuffer();
@@ -304,29 +303,20 @@ WindowRenderer::Resources::Resources(WindowRenderer::InitArgs &&args)
 }
 
 void WindowRenderer::Resources::createBackgroundTextureShaderResource() {
-    D3D11_TEXTURE2D_DESC texture_description;
-    backgroundTexture_m->GetDesc(&texture_description);
-
-    D3D11_SHADER_RESOURCE_VIEW_DESC shader_description;
-    shader_description.Format = texture_description.Format;
-    shader_description.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-    shader_description.Texture2D.MostDetailedMip = texture_description.MipLevels - 1;
-    shader_description.Texture2D.MipLevels = texture_description.MipLevels;
-
     const auto result = device()->CreateShaderResourceView(
-        backgroundTexture_m.Get(), nullptr, &backgroundTextureShaderResource_m);
-    if (IS_ERROR(result)) throw Error{result, "Failed to create shader resource"};
+        backgroundTexture.Get(), nullptr, &backgroundTextureShaderResource);
+    if (IS_ERROR(result)) throw Error{result, "Failed to create background shader resource"};
 }
 
 void WindowRenderer::Resources::createBackgroundVertexBuffer() {
-    static const Vertex vertices[] = {
+    static const auto vertices = std::array{
         Vertex{-1.0f, -1.0f, 0.0f, 1.0f},
         Vertex{-1.0f, 1.0f, 0.0f, 0.0f},
         Vertex{1.0f, -1.0f, 1.0f, 1.0f},
         Vertex{1.0f, -1.0f, 1.0f, 1.0f},
         Vertex{-1.0f, 1.0f, 0.0f, 0.0f},
-        Vertex{1.0f, 1.0f, 1.0f, 0.0f}};
-
+        Vertex{1.0f, 1.0f, 1.0f, 0.0f},
+    };
     D3D11_BUFFER_DESC buffer_description;
     RtlZeroMemory(&buffer_description, sizeof(buffer_description));
     buffer_description.Usage = D3D11_USAGE_DEFAULT;
@@ -339,24 +329,24 @@ void WindowRenderer::Resources::createBackgroundVertexBuffer() {
     init_data.pSysMem = &vertices[0];
 
     const auto result =
-        device()->CreateBuffer(&buffer_description, &init_data, &backgroundVertexBuffer_m);
+        device()->CreateBuffer(&buffer_description, &init_data, &backgroundVertexBuffer);
     if (IS_ERROR(result)) throw Error{result, "Failed to create vertex buffer"};
 }
 
 void WindowRenderer::Resources::createSwapChain(HWND windowHandle) {
     auto factory = renderer::getFactory(device());
-    swapChain_m = renderer::createSwapChain(factory, device(), windowHandle);
+    swapChain = renderer::createSwapChain(factory, device(), windowHandle);
 }
 
 void WindowRenderer::Resources::createRenderTarget() {
     ComPtr<ID3D11Texture2D> back_buffer;
     const auto buffer = 0;
-    auto result = swapChain_m->GetBuffer(buffer, __uuidof(ID3D11Texture2D), &back_buffer);
+    auto result = swapChain->GetBuffer(buffer, __uuidof(ID3D11Texture2D), &back_buffer);
     if (IS_ERROR(result)) throw Error{result, "Failed to get backbuffer"};
 
     const D3D11_RENDER_TARGET_VIEW_DESC *render_target_description = nullptr;
     result = device()->CreateRenderTargetView(
-        back_buffer.Get(), render_target_description, &renderTarget_m);
+        back_buffer.Get(), render_target_description, &renderTarget);
     if (IS_ERROR(result)) throw Error{result, "Failed to create render target for backbuffer"};
 }
 
@@ -364,12 +354,12 @@ void WindowRenderer::Resources::createMaskedPixelShader() {
     const auto size = ARRAYSIZE(g_MaskedPixelShader);
     auto shader = &g_MaskedPixelShader[0];
     ID3D11ClassLinkage *linkage = nullptr;
-    const auto result = device()->CreatePixelShader(shader, size, linkage, &maskedPixelShader_m);
+    const auto result = device()->CreatePixelShader(shader, size, linkage, &maskedPixelShader);
     if (IS_ERROR(result)) throw Error{result, "Failed to create pixel shader"};
 }
 
 void WindowRenderer::Resources::createLinearSamplerState() {
-    linearSamplerState_m = createLinearSampler();
+    linearSamplerState = createLinearSampler();
 }
 
 void WindowRenderer::Resources::createPointerVertexBuffer() {
@@ -380,7 +370,6 @@ void WindowRenderer::Resources::createPointerVertexBuffer() {
     buffer_description.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     buffer_description.CPUAccessFlags = 0;
 
-    const auto result =
-        device()->CreateBuffer(&buffer_description, nullptr, &pointerVertexBuffer_m);
+    const auto result = device()->CreateBuffer(&buffer_description, nullptr, &pointerVertexBuffer);
     if (IS_ERROR(result)) throw Error{result, "Failed to create vertex buffer"};
 }

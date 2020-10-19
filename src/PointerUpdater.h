@@ -19,9 +19,9 @@ struct PointerBuffer {
 struct PointerUpdater {
     void update(PointerUpdate &update, const FrameContext &context);
 
-    const PointerBuffer &data() const noexcept { return pointer_m; }
+    auto data() const noexcept -> const PointerBuffer & { return m_pointer; }
 
 private:
-    RECT pointer_desktop_m = {0, 0, 0, 0};
-    PointerBuffer pointer_m;
+    RECT m_pointer_desktop = {0, 0, 0, 0};
+    PointerBuffer m_pointer;
 };

@@ -36,15 +36,15 @@ private:
         void prepare(HANDLE targetHandle);
 
         void activateRenderTarget() {
-            deviceContext()->OMSetRenderTargets(1, renderTarget_m.GetAddressOf(), nullptr);
+            deviceContext()->OMSetRenderTargets(1, renderTarget.GetAddressOf(), nullptr);
         }
 
-        ComPtr<ID3D11Texture2D> target_m;
-        ComPtr<ID3D11RenderTargetView> renderTarget_m;
+        ComPtr<ID3D11Texture2D> target;
+        ComPtr<ID3D11RenderTargetView> renderTarget;
 
-        ComPtr<ID3D11Texture2D> moveTmp_m;
+        ComPtr<ID3D11Texture2D> moveTmp;
     };
-    Resources dx_m;
+    Resources m_dx;
 
-    std::vector<quad_vertices> dirtyQuads_m;
+    std::vector<quad_vertices> m_dirtyQuads;
 };
