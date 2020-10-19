@@ -82,7 +82,7 @@ void WindowRenderer::render() {
 
     dx.clearRenderTarget({0, 0, 0, 0});
 
-    dx.deviceContext()->GenerateMips(dx.backgroundTextureShaderResource.Get());
+    // dx.deviceContext()->GenerateMips(dx.backgroundTextureShaderResource.Get());
 
     setViewPort();
     dx.activateRenderTarget();

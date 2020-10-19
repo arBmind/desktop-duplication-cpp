@@ -160,14 +160,14 @@ auto createSharedTexture(const ComPtr<ID3D11Device> &device, SIZE size) -> ComPt
     RtlZeroMemory(&description, sizeof(D3D11_TEXTURE2D_DESC));
     description.Width = size.cx;
     description.Height = size.cy;
-    description.MipLevels = 0;
+    description.MipLevels = 1;
     description.ArraySize = 1;
     description.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
     description.SampleDesc.Count = 1;
     description.Usage = D3D11_USAGE_DEFAULT;
     description.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
     description.CPUAccessFlags = 0;
-    description.MiscFlags = D3D11_RESOURCE_MISC_SHARED | D3D11_RESOURCE_MISC_GENERATE_MIPS;
+    description.MiscFlags = D3D11_RESOURCE_MISC_SHARED /*| D3D11_RESOURCE_MISC_GENERATE_MIPS*/;
 
     ComPtr<ID3D11Texture2D> texture;
     const auto result = device->CreateTexture2D(&description, nullptr, &texture);
