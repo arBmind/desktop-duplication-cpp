@@ -12,7 +12,7 @@ auto make_tuple_ptr(A &&... a) -> unique_tuple_ptr<std::remove_cvref_t<A>...> {
 }
 
 template<class... A>
-auto ulong_ptr_cast(unique_tuple_ptr<A...> &ptr) noexcept -> ULONG_PTR {
+auto ulong_ptr_cast(unique_tuple_ptr<A...> &&ptr) noexcept -> ULONG_PTR {
     return reinterpret_cast<ULONG_PTR>(ptr.release());
 }
 
