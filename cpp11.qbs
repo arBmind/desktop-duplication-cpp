@@ -62,6 +62,7 @@ Project {
             "src/meta/tuple.h",
             "src/renderer.cpp",
             "src/renderer.h",
+            "src/stable.h",
             "src/win32/PowerRequest.cpp",
             "src/win32/PowerRequest.h",
             "src/win32/TaskbarList.cpp",
