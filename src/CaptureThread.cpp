@@ -1,14 +1,11 @@
 #include "CaptureThread.h"
 
-#include "application.h"
 #include "renderer.h"
 
 #include "CapturedUpdate.h"
 
 #include "meta/scope_guard.h"
 #include "meta/tuple.h"
-
-#include <gsl.h>
 
 namespace {
 
@@ -39,48 +36,46 @@ auto GetCurrentThreadHandle() -> HANDLE {
     return output;
 }
 
-auto CaptureThread::start(StartArgs &&args) -> std::thread {
+CaptureThread::~CaptureThread() {
+    if (m_stdThread) stop();
+}
+
+void CaptureThread::start(StartArgs &&args) {
+    if (m_stdThread) return; // already started
     m_device = std::move(args.device);
     m_context.offset = args.offset;
     m_keepRunning = true;
     m_doCapture = true;
-    return std::thread([=] { run(); });
+    m_stdThread.emplace([=] { run(); });
 }
 
-void WINAPI CaptureThread::stopAPC(ULONG_PTR parameter) {
-    auto args = unique_tuple_ptr_cast<CaptureThread *>(parameter);
-    auto self = std::get<CaptureThread *>(*args);
-    self->m_keepRunning = false;
-}
-
-void CaptureThread::nextAPC(ULONG_PTR parameter) {
-    auto args = unique_tuple_ptr_cast<CaptureThread *>(parameter);
-    auto self = std::get<CaptureThread *>(*args);
-    self->m_dupl->ReleaseFrame();
-    self->m_doCapture = true;
-}
-
-void CaptureThread::next() {
-    [[gsl::suppress("26490")]] // bad API design
-    QueueUserAPC(&CaptureThread::nextAPC, m_threadHandle, ulong_ptr_cast(make_tuple_ptr(this)));
-}
+void CaptureThread::next() { m_thread.queueUserApc<&CaptureThread::capture_next>({this}); }
 
 void CaptureThread::stop() {
-    [[gsl::suppress("26490")]] // bad API design
-    QueueUserAPC(&CaptureThread::stopAPC, m_threadHandle, ulong_ptr_cast(make_tuple_ptr(this)));
+    m_thread.queueUserApc<&CaptureThread::capture_stop>({this});
+
+    m_stdThread->join();
+    m_stdThread.reset();
 }
 
+void CaptureThread::capture_next() {
+    m_dupl->ReleaseFrame();
+    m_doCapture = true;
+}
+
+void CaptureThread::capture_stop() { m_keepRunning = false; }
+
 void CaptureThread::run() {
-    m_threadHandle = GetCurrentThreadHandle();
-    LATER(CloseHandle(m_threadHandle));
+    m_thread = Thread::fromCurrent();
     try {
         setDesktop();
-        initDuplication();
+        initCapture();
         while (m_keepRunning) {
             if (m_doCapture) {
                 auto frame = captureUpdate();
                 if (frame) {
-                    m_callbacks->setFrame(std::move(*frame), m_context, m_index);
+                    m_config.setFrameCallback(
+                        m_config.callbackPtr, std::move(*frame), m_context, m_config.threadIndex);
                     m_doCapture = false;
                 }
             }
@@ -90,7 +85,7 @@ void CaptureThread::run() {
         }
     }
     catch (...) {
-        m_callbacks->setError(std::current_exception());
+        m_config.setErrorCallback(m_config.callbackPtr, std::current_exception());
         while (m_keepRunning) {
             const auto alertable = true;
             SleepEx(INFINITE, alertable);
@@ -98,39 +93,40 @@ void CaptureThread::run() {
     }
 }
 
-void CaptureThread::initDuplication() {
-    ComPtr<IDXGIDevice> dxgi_device;
-    auto result = m_device.As(&dxgi_device);
-    if (IS_ERROR(result)) throw Unexpected{"Failed to get IDXGIDevice from device"};
+void CaptureThread::initCapture() {
+    auto dxgiDevice = ComPtr<IDXGIDevice>{};
+    auto dxResult = m_device.As(&dxgiDevice);
+    if (IS_ERROR(dxResult)) throw Unexpected{"Failed to get IDXGIDevice from device"};
 
-    ComPtr<IDXGIAdapter> dxgi_adapter;
-    result = dxgi_device->GetParent(__uuidof(IDXGIAdapter), &dxgi_adapter);
+    auto dxgiAdapter = ComPtr<IDXGIAdapter>{};
+    dxResult = dxgiDevice->GetParent(__uuidof(IDXGIAdapter), &dxgiAdapter);
     const auto parentExpected = {DXGI_ERROR_ACCESS_LOST, HRESULT{WAIT_ABANDONED}};
-    if (IS_ERROR(result))
-        handleDeviceError("Failed to get IDXGIAdapter from device", result, parentExpected);
+    if (IS_ERROR(dxResult))
+        handleDeviceError("Failed to get IDXGIAdapter from device", dxResult, parentExpected);
 
-    ComPtr<IDXGIOutput> dxgi_output;
-    result = dxgi_adapter->EnumOutputs(m_display, &dxgi_output);
-    if (IS_ERROR(result))
-        handleDeviceError("Failed to get ouput from adapter", result, {DXGI_ERROR_NOT_FOUND});
+    auto dxgiOutput = ComPtr<IDXGIOutput>{};
+    dxResult = dxgiAdapter->EnumOutputs(m_config.display, &dxgiOutput);
+    if (IS_ERROR(dxResult))
+        handleDeviceError("Failed to get ouput from adapter", dxResult, {DXGI_ERROR_NOT_FOUND});
 
-    result = dxgi_output->GetDesc(&m_context.output_desc);
-    if (IS_ERROR(result)) handleDeviceError("Failed to get ouput description", result, {});
+    dxResult = dxgiOutput->GetDesc(&m_context.output_desc);
+    if (IS_ERROR(dxResult)) handleDeviceError("Failed to get ouput description", dxResult, {});
 
-    ComPtr<IDXGIOutput1> dxgi_output1;
-    result = dxgi_output.As(&dxgi_output1);
-    if (IS_ERROR(result)) throw Unexpected{"Failed to get IDXGIOutput1 from dxgi_output"};
+    auto dxgiOutput1 = ComPtr<IDXGIOutput1>{};
+    dxResult = dxgiOutput.As(&dxgiOutput1);
+    if (IS_ERROR(dxResult)) throw Unexpected{"Failed to get IDXGIOutput1 from dxgi_output"};
 
-    result = dxgi_output1->DuplicateOutput(m_device.Get(), &m_dupl);
-    if (IS_ERROR(result)) {
-        if (DXGI_ERROR_NOT_CURRENTLY_AVAILABLE == result)
+    dxResult = dxgiOutput1->DuplicateOutput(m_device.Get(), &m_dupl);
+    if (IS_ERROR(dxResult)) {
+        if (DXGI_ERROR_NOT_CURRENTLY_AVAILABLE == dxResult)
             throw Unexpected{"Maximum of desktop duplications reached!"};
         const auto duplicateExpected = {
             HRESULT{E_ACCESSDENIED},
             DXGI_ERROR_UNSUPPORTED,
             DXGI_ERROR_SESSION_DISCONNECTED,
         };
-        handleDeviceError("Failed to get duplicate output from device", result, duplicateExpected);
+        handleDeviceError(
+            "Failed to get duplicate output from device", dxResult, duplicateExpected);
     }
 }
 
@@ -147,55 +143,58 @@ void CaptureThread::handleDeviceError(
 }
 
 auto CaptureThread::captureUpdate() -> std::optional<CapturedUpdate> {
-    CapturedUpdate update;
-    const auto time = 50;
-    ComPtr<IDXGIResource> resource;
-    DXGI_OUTDUPL_FRAME_INFO frame_info;
-    auto result = m_dupl->AcquireNextFrame(time, &frame_info, &resource);
-    if (DXGI_ERROR_WAIT_TIMEOUT == result) return {};
-    if (IS_ERROR(result)) throw Expected{"Failed to acquire next frame in capture_thread"};
+    auto result = std::optional<CapturedUpdate>{};
+    const auto time = 10;
+    auto resource = ComPtr<IDXGIResource>{};
+    auto frameInfo = DXGI_OUTDUPL_FRAME_INFO{};
+    auto dxResult = m_dupl->AcquireNextFrame(time, &frameInfo, &resource);
+    if (DXGI_ERROR_WAIT_TIMEOUT == dxResult) return {};
+    if (IS_ERROR(dxResult)) throw Expected{"Failed to acquire next frame in capture_thread"};
 
-    update.frame.frames = frame_info.AccumulatedFrames;
-    update.frame.present_time = frame_info.LastPresentTime.QuadPart;
-    update.frame.rects_coalesced = frame_info.RectsCoalesced;
-    update.frame.protected_content_masked_out = frame_info.ProtectedContentMaskedOut;
+    result.emplace();
+    auto &update = result.value();
+    update.frame.frames = frameInfo.AccumulatedFrames;
+    update.frame.present_time = frameInfo.LastPresentTime.QuadPart;
+    update.frame.rects_coalesced = frameInfo.RectsCoalesced;
+    update.frame.protected_content_masked_out = frameInfo.ProtectedContentMaskedOut;
 
-    if (0 != frame_info.TotalMetadataBufferSize) {
-        update.frame.buffer.resize(frame_info.TotalMetadataBufferSize);
+    if (0 != frameInfo.TotalMetadataBufferSize) {
+        update.frame.buffer.resize(frameInfo.TotalMetadataBufferSize);
 
-        auto moved_ptr = update.frame.buffer.data();
-        result = m_dupl->GetFrameMoveRects(
-            frame_info.TotalMetadataBufferSize,
-            reinterpret_cast<DXGI_OUTDUPL_MOVE_RECT *>(moved_ptr),
+        auto movedPtr = update.frame.buffer.data();
+        dxResult = m_dupl->GetFrameMoveRects(
+            frameInfo.TotalMetadataBufferSize,
+            reinterpret_cast<DXGI_OUTDUPL_MOVE_RECT *>(movedPtr),
             &update.frame.moved_bytes);
-        if (IS_ERROR(result)) throw Expected{"Failed to get frame moved rects in capture_thread"};
+        if (IS_ERROR(dxResult)) throw Expected{"Failed to get frame moved rects in capture_thread"};
 
-        auto dirty_ptr = moved_ptr + update.frame.moved_bytes;
-        const auto dirty_size = frame_info.TotalMetadataBufferSize - update.frame.moved_bytes;
-        result = m_dupl->GetFrameDirtyRects(
-            dirty_size, reinterpret_cast<RECT *>(dirty_ptr), &update.frame.dirty_bytes);
-        if (IS_ERROR(result)) throw Expected{"Failed to get frame dirty rects in capture_thread"};
+        auto dirtyPtr = movedPtr + update.frame.moved_bytes;
+        const auto dirtySize = frameInfo.TotalMetadataBufferSize - update.frame.moved_bytes;
+        dxResult = m_dupl->GetFrameDirtyRects(
+            dirtySize, reinterpret_cast<RECT *>(dirtyPtr), &update.frame.dirty_bytes);
+        if (IS_ERROR(dxResult)) throw Expected{"Failed to get frame dirty rects in capture_thread"};
     }
     if (!update.frame.dirty().empty()) {
-        result = resource.As(&update.frame.image);
-        if (IS_ERROR(result))
+        dxResult = resource.As(&update.frame.image);
+        if (IS_ERROR(dxResult))
             throw Unexpected{"Failed to get ID3D11Texture from resource in capture_thread"};
     }
 
-    update.pointer.update_time = frame_info.LastMouseUpdateTime.QuadPart;
-    update.pointer.position = frame_info.PointerPosition;
-    if (0 != frame_info.PointerShapeBufferSize) {
-        update.pointer.shape_buffer.resize(frame_info.PointerShapeBufferSize);
+    update.pointer.update_time = frameInfo.LastMouseUpdateTime.QuadPart;
+    update.pointer.position = frameInfo.PointerPosition;
+    if (0 != frameInfo.PointerShapeBufferSize) {
+        update.pointer.shape_buffer.resize(frameInfo.PointerShapeBufferSize);
 
-        auto pointer_ptr = update.pointer.shape_buffer.data();
-        const auto pointer_size = update.pointer.shape_buffer.size();
-        UINT size_required_dummy;
-        result = m_dupl->GetFramePointerShape(
-            reinterpret_cast<const uint32_t &>(pointer_size),
-            pointer_ptr,
-            &size_required_dummy,
+        auto pointerPtr = update.pointer.shape_buffer.data();
+        const auto pointerSize = update.pointer.shape_buffer.size();
+        auto sizeRequiredDummy = UINT{};
+        dxResult = m_dupl->GetFramePointerShape(
+            reinterpret_cast<const uint32_t &>(pointerSize),
+            pointerPtr,
+            &sizeRequiredDummy,
             &update.pointer.shape_info);
-        if (IS_ERROR(result)) throw Expected{"Failed to get frame pointer shape in capture_thread"};
+        if (IS_ERROR(dxResult))
+            throw Expected{"Failed to get frame pointer shape in capture_thread"};
         // assert(size_required_dummy == frame.pointer_data.size());
     }
     return update;

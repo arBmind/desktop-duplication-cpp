@@ -1,15 +1,16 @@
 #pragma once
-#include "stable.h"
-
 #include "meta/comptr.h"
+#include "win32/Geometry.h"
+
+#include <d3d11.h>
+#include <dxgi1_3.h>
 
 #include <vector>
 
-inline auto rectSize(const RECT &rect) noexcept -> SIZE {
-    return SIZE{rect.right - rect.left, rect.bottom - rect.top};
-}
-
 namespace renderer {
+
+using win32::Dimension;
+using win32::Rect;
 
 struct Error {
     HRESULT result;
@@ -30,15 +31,15 @@ auto createSwapChain(
     -> ComPtr<IDXGISwapChain2>;
 
 struct DimensionData {
-    RECT rect{};
+    Rect rect{};
     std::vector<int> used_displays;
 };
 
 auto getDimensionData(const ComPtr<ID3D11Device> &device, const std::vector<int> displays)
     -> DimensionData;
 
-auto createTexture(const ComPtr<ID3D11Device> &device, SIZE size) -> ComPtr<ID3D11Texture2D>;
-auto createSharedTexture(const ComPtr<ID3D11Device> &device, SIZE size) -> ComPtr<ID3D11Texture2D>;
+auto createTexture(const ComPtr<ID3D11Device> &device, Dimension) -> ComPtr<ID3D11Texture2D>;
+auto createSharedTexture(const ComPtr<ID3D11Device> &device, Dimension) -> ComPtr<ID3D11Texture2D>;
 
 // note: Do N-O-T close this handle!
 auto getSharedHandle(const ComPtr<ID3D11Texture2D> &texture) -> HANDLE;

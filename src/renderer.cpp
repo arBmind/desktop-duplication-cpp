@@ -1,7 +1,6 @@
 #include "renderer.h"
 
 #include <array>
-#include <gsl.h>
 #include <limits>
 
 namespace renderer {
@@ -64,8 +63,8 @@ auto createSwapChain(
     const ComPtr<IDXGIFactory2> &factory, const ComPtr<ID3D11Device> &device, HWND window)
     -> ComPtr<IDXGISwapChain2> {
     [[gsl::suppress("26415"), gsl::suppress("26418")]] // ComPtr is not just a smart pointer
-    RECT rect;
-    GetClientRect(window, &rect);
+    auto rect = RECT{};
+    ::GetClientRect(window, &rect);
     const auto width = static_cast<uint32_t>(rect.right - rect.left);
     const auto height = static_cast<uint32_t>(rect.bottom - rect.top);
 
@@ -109,10 +108,11 @@ auto getDimensionData(const ComPtr<ID3D11Device> &device, const std::vector<int>
     result = dxgi_device->GetParent(__uuidof(IDXGIAdapter), &dxgi_adapter);
     if (IS_ERROR(result)) throw Error{result, "Failed to get IDXGIAdapter from device"};
 
-    DimensionData output;
-    output.rect.top = output.rect.left = std::numeric_limits<int>::max();
-    output.rect.bottom = output.rect.right = std::numeric_limits<int>::min();
+    auto rect = RECT{};
+    rect.top = rect.left = std::numeric_limits<int>::max();
+    rect.bottom = rect.right = std::numeric_limits<int>::min();
 
+    auto output = DimensionData{};
     for (auto display : displays) {
         ComPtr<IDXGIOutput> dxgi_output;
         result = dxgi_adapter->EnumOutputs(display, &dxgi_output);
@@ -121,23 +121,25 @@ auto getDimensionData(const ComPtr<ID3D11Device> &device, const std::vector<int>
 
         DXGI_OUTPUT_DESC description;
         dxgi_output->GetDesc(&description);
-        output.rect.top = std::min(output.rect.top, description.DesktopCoordinates.top);
-        output.rect.left = std::min(output.rect.left, description.DesktopCoordinates.left);
-        output.rect.bottom = std::max(output.rect.bottom, description.DesktopCoordinates.bottom);
-        output.rect.right = std::max(output.rect.right, description.DesktopCoordinates.right);
+        rect.top = std::min(rect.top, description.DesktopCoordinates.top);
+        rect.left = std::min(rect.left, description.DesktopCoordinates.left);
+        rect.bottom = std::max(rect.bottom, description.DesktopCoordinates.bottom);
+        rect.right = std::max(rect.right, description.DesktopCoordinates.right);
         output.used_displays.push_back(display);
     }
     if (output.used_displays.empty()) throw Error{result, "Found no valid displays"};
 
+    output.rect = Rect::fromRECT(rect);
     return output;
 }
 
-auto createTexture(const ComPtr<ID3D11Device> &device, SIZE size) -> ComPtr<ID3D11Texture2D> {
+auto createTexture(const ComPtr<ID3D11Device> &device, Dimension dimension)
+    -> ComPtr<ID3D11Texture2D> {
     [[gsl::suppress("26415"), gsl::suppress("26418")]] // ComPtr is not just a smart pointer
     D3D11_TEXTURE2D_DESC description;
     RtlZeroMemory(&description, sizeof(D3D11_TEXTURE2D_DESC));
-    description.Width = size.cx;
-    description.Height = size.cy;
+    description.Width = dimension.width;
+    description.Height = dimension.height;
     description.MipLevels = 1;
     description.ArraySize = 1;
     description.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
@@ -154,12 +156,13 @@ auto createTexture(const ComPtr<ID3D11Device> &device, SIZE size) -> ComPtr<ID3D
     return texture;
 }
 
-auto createSharedTexture(const ComPtr<ID3D11Device> &device, SIZE size) -> ComPtr<ID3D11Texture2D> {
+auto createSharedTexture(const ComPtr<ID3D11Device> &device, Dimension dimension)
+    -> ComPtr<ID3D11Texture2D> {
     [[gsl::suppress("26415"), gsl::suppress("26418")]] // ComPtr is not just a smart pointer
     D3D11_TEXTURE2D_DESC description;
     RtlZeroMemory(&description, sizeof(D3D11_TEXTURE2D_DESC));
-    description.Width = size.cx;
-    description.Height = size.cy;
+    description.Width = dimension.width;
+    description.Height = dimension.height;
     description.MipLevels = 1;
     description.ArraySize = 1;
     description.Format = DXGI_FORMAT_B8G8R8A8_UNORM;

@@ -1,5 +1,4 @@
 #pragma once
-#include "stable.h"
 
 #include "meta/flags.h"
 #include <meta/comptr.h>
@@ -74,13 +73,13 @@ private:
     void updateThumbImages();
 
 private:
-    HWND window{};
-    UINT idBase = 1;
-    int iconSize = 24;
+    HWND m_window{};
+    UINT m_idBase = 1;
+    int m_iconSize = 24;
     ComPtr<ITaskbarList3> p{};
-    menu_entries menu{};
-    bool menu_initialized = false;
-    bool image_updated = false;
+    menu_entries m_menu{};
+    bool m_menuInitialized = false;
+    bool m_imageUpdated = false;
 };
 
 } // namespace win32

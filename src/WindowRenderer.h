@@ -1,11 +1,18 @@
 #pragma once
-#include "stable.h"
-
 #include "BaseRenderer.h"
+#include "win32/Geometry.h"
+#include "win32/Handle.h"
+
+#include <dxgi1_3.h>
 
 #include <optional>
 
 struct PointerBuffer;
+
+using win32::Dimension;
+using win32::Handle;
+using win32::Point;
+using win32::Vec2f;
 
 // manages state how to render background & pointer to output window
 struct WindowRenderer {
@@ -14,24 +21,15 @@ struct WindowRenderer {
         ComPtr<ID3D11Texture2D> texture; // texture is rendered as quad
     };
     using Vertex = BaseRenderer::Vertex;
-    struct Vec2f {
-        float x, y;
-    };
 
     void init(InitArgs &&args);
     void reset() noexcept;
 
-    float zoom() const noexcept { return m_zoom; }
-    auto offset() const noexcept -> POINT {
-        return {static_cast<long>(m_offset.x), static_cast<long>(m_offset.y)};
-    }
-    auto frameLatencyWaitable() -> HANDLE;
+    auto frameLatencyWaitable() -> Handle;
 
-    bool resize(SIZE size) noexcept;
+    bool resize(Dimension size) noexcept;
     void setZoom(float zoom) noexcept;
-    void moveOffset(POINT delta) noexcept;
-    void moveToBorder(int x, int y);
-    void moveTo(Vec2f offset) noexcept;
+    void setOffset(Vec2f offset) noexcept;
 
     void render();
     void renderPointer(const PointerBuffer &pointer);
@@ -44,9 +42,9 @@ private:
     void updatePointerVertices(const PointerBuffer &pointer);
 
 private:
+    Dimension m_size{};
     float m_zoom = 1.f;
     Vec2f m_offset = {0, 0};
-    SIZE m_size{};
 
     bool m_pendingResizeBuffers = false;
     HWND m_windowHandle{};

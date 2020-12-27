@@ -1,11 +1,10 @@
 #pragma once
-#include "stable.h"
-
 #include "meta/comptr.h"
+
+#include <d3d11.h>
 
 #include <array>
 #include <cinttypes>
-#include <gsl.h>
 
 // shared between frame updater & window renderer
 struct BaseRenderer {
@@ -27,8 +26,7 @@ struct BaseRenderer {
     BaseRenderer &operator=(const BaseRenderer &) = default;
     BaseRenderer &operator=(BaseRenderer &&) = default;
 
-    auto createShaderTexture(gsl::not_null<ID3D11Texture2D *> texture) const
-        -> ComPtr<ID3D11ShaderResourceView>;
+    auto createShaderTexture(ID3D11Texture2D *texture) const -> ComPtr<ID3D11ShaderResourceView>;
     auto createLinearSampler() -> ComPtr<ID3D11SamplerState>;
 
     auto device() const noexcept -> ID3D11Device * { return m_device.Get(); }

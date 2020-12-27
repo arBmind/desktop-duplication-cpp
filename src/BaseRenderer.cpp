@@ -24,8 +24,9 @@ BaseRenderer::~BaseRenderer() {
     }
 }
 
-auto BaseRenderer::createShaderTexture(gsl::not_null<ID3D11Texture2D *> texture) const
+auto BaseRenderer::createShaderTexture(ID3D11Texture2D *texture) const
     -> ComPtr<ID3D11ShaderResourceView> {
+
     D3D11_TEXTURE2D_DESC description;
     texture->GetDesc(&description);
 

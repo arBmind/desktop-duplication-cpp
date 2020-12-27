@@ -6,28 +6,28 @@
 #include "MaskedPixelShader.h"
 
 #include <array>
-#include <gsl.h>
 #include <memory>
 
 using Error = renderer::Error;
+using win32::Rect;
 
 void WindowRenderer::init(InitArgs &&args) {
     m_dx.emplace(std::move(args));
     m_windowHandle = args.windowHandle;
 
     RECT rect;
-    GetClientRect(m_windowHandle, &rect);
-    m_size = rectSize(rect);
+    ::GetClientRect(m_windowHandle, &rect);
+    m_size = Rect::fromRECT(rect).dimension;
 }
 
 void WindowRenderer::reset() noexcept { m_dx.reset(); }
 
-auto WindowRenderer::frameLatencyWaitable() -> HANDLE {
-    return m_dx->swapChain->GetFrameLatencyWaitableObject();
+auto WindowRenderer::frameLatencyWaitable() -> Handle {
+    return Handle{m_dx->swapChain->GetFrameLatencyWaitableObject()};
 }
 
-bool WindowRenderer::resize(SIZE size) noexcept {
-    if (size.cx == m_size.cx && size.cy == m_size.cy) return false;
+bool WindowRenderer::resize(Dimension size) noexcept {
+    if (size == m_size) return false;
     m_size = size;
     m_pendingResizeBuffers = true;
     return true;
@@ -38,35 +38,27 @@ void WindowRenderer::setZoom(float zoom) noexcept {
     m_zoom = zoom;
 }
 
-void WindowRenderer::moveOffset(POINT delta) noexcept {
-    if (delta.x == 0 && delta.y == 0) return;
-    const auto offset = Vec2f{
-        m_offset.x + static_cast<float>(delta.x) / m_zoom,
-        m_offset.y + static_cast<float>(delta.y) / m_zoom};
-    m_offset = offset;
-}
+// void WindowRenderer::moveToBorder(int x, int y) {
+//     auto next = m_offset;
 
-void WindowRenderer::moveToBorder(int x, int y) {
-    auto next = m_offset;
+//     const auto &dx = *m_dx;
+//     D3D11_TEXTURE2D_DESC texture_description;
+//     dx.backgroundTexture->GetDesc(&texture_description);
 
-    const auto &dx = *m_dx;
-    D3D11_TEXTURE2D_DESC texture_description;
-    dx.backgroundTexture->GetDesc(&texture_description);
+//     if (0 > x)
+//         next.x = 0;
+//     else if (0 < x)
+//         next.x = -static_cast<float>(texture_description.Width) + (m_size.width / m_zoom);
 
-    if (0 > x)
-        next.x = 0;
-    else if (0 < x)
-        next.x = -static_cast<float>(texture_description.Width) + (m_size.cx / m_zoom);
+//     if (0 > y)
+//         next.y = 0;
+//     else if (0 < y)
+//         next.y = -static_cast<float>(texture_description.Height) + (m_size.height / m_zoom);
 
-    if (0 > y)
-        next.y = 0;
-    else if (0 < y)
-        next.y = -static_cast<float>(texture_description.Height) + (m_size.cy / m_zoom);
+//     setOffset(next);
+// }
 
-    moveTo(next);
-}
-
-void WindowRenderer::moveTo(Vec2f offset) noexcept {
+void WindowRenderer::setOffset(Vec2f offset) noexcept {
     if (offset.x == m_offset.x && offset.y == m_offset.y) return;
     m_offset = offset;
 }
@@ -80,7 +72,8 @@ void WindowRenderer::render() {
         dx.createRenderTarget();
     }
 
-    dx.clearRenderTarget({0, 0, 0, 0});
+    auto black = BaseRenderer::Color{0, 0, 0, 0};
+    dx.clearRenderTarget(black);
 
     // dx.deviceContext()->GenerateMips(dx.backgroundTextureShaderResource.Get());
 
@@ -137,8 +130,8 @@ void WindowRenderer::resizeSwapBuffer() {
     dx.swapChain->GetDesc(&description);
     const auto result = dx.swapChain->ResizeBuffers(
         description.BufferCount,
-        m_size.cx,
-        m_size.cy,
+        m_size.width,
+        m_size.height,
         description.BufferDesc.Format,
         description.Flags);
     if (IS_ERROR(result)) throw Error{result, "Failed to resize swap buffers"};
@@ -266,8 +259,7 @@ void WindowRenderer::updatePointerVertices(const PointerBuffer &pointer) {
     dx.backgroundTexture->GetDesc(&texture_description);
 
     const auto texture_size = SIZE{
-        gsl::narrow_cast<int>(texture_description.Width),
-        gsl::narrow_cast<int>(texture_description.Height)};
+        static_cast<int>(texture_description.Width), static_cast<int>(texture_description.Height)};
     const auto center = POINT{texture_size.cx / 2, texture_size.cy / 2};
 
     const auto position = pointer.position;
@@ -279,9 +271,8 @@ void WindowRenderer::updatePointerVertices(const PointerBuffer &pointer) {
 
     const auto isMonochrome = pointer.shape_info.Type == DXGI_OUTDUPL_POINTER_SHAPE_TYPE_MONOCHROME;
     const auto size = SIZE{
-        gsl::narrow_cast<int>(pointer.shape_info.Width),
-        gsl::narrow_cast<int>(
-            isMonochrome ? pointer.shape_info.Height / 2 : pointer.shape_info.Height)};
+        static_cast<int>(pointer.shape_info.Width),
+        static_cast<int>(isMonochrome ? pointer.shape_info.Height / 2 : pointer.shape_info.Height)};
     mouse_to_desktop(vertices[0], 0, size.cy);
     mouse_to_desktop(vertices[1], 0, 0);
     mouse_to_desktop(vertices[2], size.cx, size.cy);

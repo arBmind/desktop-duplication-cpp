@@ -1,9 +1,12 @@
 #pragma once
-#include "stable.h"
-
 #include "FrameContext.h"
 
-#include <meta/comptr.h>
+#include "meta/comptr.h"
+#include "win32/Geometry.h"
+#include "win32/Thread.h"
+
+#include <Windows.h>
+#include <d3d11.h>
 
 #include <optional>
 #include <thread>
@@ -22,52 +25,80 @@ struct Expected {
 /// returns the global thread handle (usable in any thread!)
 HANDLE GetCurrentThreadHandle();
 
+using win32::Point;
+using win32::Thread;
+
+/// Interaction with the Capturing Thread
+/// note: all public methods should be called by main thread!
 struct CaptureThread {
-    struct Callbacks { // not implemented here! (see application.cpp)
-        void setError(std::exception_ptr Error);
-        void setFrame(CapturedUpdate &&frame, const FrameContext &context, size_t thread_index);
-    };
-    struct InitArgs {
-        Callbacks *callbacks{}; // callbacks
+    using SetErrorFunc = void(void *, std::exception_ptr);
+    using SetFrameFunc = void(void *, CapturedUpdate &&, const FrameContext &, size_t threadIndex);
+
+    struct Config {
         int display{}; // index of the display to capture
         size_t threadIndex{}; // identifier to this thread
+
+        SetErrorFunc *setErrorCallback{&CaptureThread::noopSetErrorCallback};
+        SetFrameFunc *setFrameCallback{&CaptureThread::noopSetFrameCallback};
+        void *callbackPtr{};
+
+        /// note: callbacks are invoked inside the CaptureThread!
+        template<class T>
+        void setCallbacks(T *p) {
+            callbackPtr = p;
+            setErrorCallback = [](void *ptr, std::exception_ptr exception) {
+                auto *cb = reinterpret_cast<T *>(ptr);
+                cb->setError(exception);
+            };
+            setFrameCallback = [](void *ptr,
+                                  CapturedUpdate &&update,
+                                  const FrameContext &context,
+                                  size_t threadIndex) {
+                auto *cb = reinterpret_cast<T *>(ptr);
+                cb->setFrame(std::move(update), context, threadIndex);
+            };
+        }
     };
+
+    CaptureThread(const Config &config) noexcept
+        : m_config(config) {}
+
+    ~CaptureThread();
+
     struct StartArgs {
         ComPtr<ID3D11Device> device; // device used for capturing
-        POINT offset{}; // offset from desktop to target coordinates
+        Point offset{}; // offset from desktop to target coordinates
     };
+    void start(StartArgs &&args); ///< start a stopped thread
 
-    CaptureThread(InitArgs &&args) noexcept
-        : m_callbacks(args.callbacks)
-        , m_display(args.display)
-        , m_index(args.threadIndex) {}
-
-    [[nodiscard]] auto start(StartArgs &&args) -> std::thread; // start a stopped thread
-
-    void next(); // thread starts to capture the next frame
-    void stop(); // signal thread to stop, use join to wait!
+    void next(); ///< thread starts to capture the next frame
+    void stop(); ///< signal thread to stop and waits
 
 private:
-    static void WINAPI stopAPC(ULONG_PTR);
-    static void WINAPI nextAPC(ULONG_PTR);
+    void capture_next();
+    void capture_stop();
 
     void run();
 
-    void initDuplication();
-    void
-    handleDeviceError(const char *text, HRESULT result, std::initializer_list<HRESULT> expected);
+    void initCapture();
+    void handleDeviceError(const char *text, HRESULT, std::initializer_list<HRESULT> expected);
 
     auto captureUpdate() -> std::optional<CapturedUpdate>;
 
+    static void noopSetErrorCallback(void *, std::exception_ptr) {}
+    static void
+    noopSetFrameCallback(void *, CapturedUpdate &&, const FrameContext &, size_t /*threadIndex*/) {}
+
 private:
-    Callbacks *m_callbacks;
-    int m_display;
-    size_t m_index;
+    Config m_config;
+
     FrameContext m_context{};
-    ComPtr<ID3D11Device> m_device;
-    HANDLE m_threadHandle{};
+    ComPtr<ID3D11Device> m_device{};
+    Thread m_thread{};
     bool m_keepRunning = true;
+
     bool m_doCapture = true;
 
     ComPtr<IDXGIOutputDuplication> m_dupl;
+    std::optional<std::thread> m_stdThread;
 };

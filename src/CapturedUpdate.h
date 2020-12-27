@@ -1,8 +1,9 @@
 #pragma once
-#include "stable.h"
+#include "meta/array_view.h"
+#include "meta/comptr.h"
 
-#include <meta/array_view.h>
-#include <meta/comptr.h>
+#include <d3d11.h>
+#include <dxgi1_3.h>
 
 #include <vector>
 
@@ -31,7 +32,7 @@ struct FrameUpdate {
 };
 
 struct PointerUpdate {
-    int64_t update_time{};
+    uint64_t update_time{};
     DXGI_OUTDUPL_POINTER_POSITION position{};
 
     DXGI_OUTDUPL_POINTER_SHAPE_INFO shape_info{}; // infos about pointer changes

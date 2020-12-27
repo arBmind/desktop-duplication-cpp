@@ -1,7 +1,11 @@
 #pragma once
-#include "stable.h"
+#include "win32/Geometry.h"
+
+#include <dxgi1_3.h>
+
+using win32::Point;
 
 struct FrameContext {
-    POINT offset; // offset from desktop to target coordinates
+    Point offset; // offset from desktop to target coordinates
     DXGI_OUTPUT_DESC output_desc; // description of the frame
 };

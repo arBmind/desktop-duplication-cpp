@@ -1,7 +1,5 @@
 #pragma once
-
-#include "stable.h"
-
+#include <Windows.h>
 #include <windowsx.h>
 
 #include <utility>

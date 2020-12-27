@@ -1,18 +1,19 @@
-#include "application.h"
+#include "MainApplication.h"
 
-auto WINAPI WinMain(
-    _In_ HINSTANCE instanceHandle, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int showCommand) -> int {
-    auto make_config = [&] {
-        auto config = Application::Config{};
-        config.instanceHandle = instanceHandle;
-        config.showCommand = showCommand;
-        config.displays.push_back(0); // TODO: parse commandline / config file
-        return config;
-    };
+#include "win32/Process.h"
+
+auto WINAPI
+WinMain(_In_ HINSTANCE instanceHandle, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int /*showCommand*/)
+    -> int {
+
+    win32::Process::current_setDpiAwareness(win32::DpiAwareness::PerMonitorAwareV2);
 
     const auto hr = CoInitialize(nullptr);
     if (!SUCCEEDED(hr)) return -1;
 
-    auto app = Application{make_config()};
+    auto model = deskdup::Model{};
+    model.duplication().setOutputRect(deskdup::Application::defaultOutputRect());
+
+    auto app = deskdup::Application{model, instanceHandle};
     return app.run();
 }

@@ -4,27 +4,35 @@
 
 #include "CapturedUpdate.h"
 #include "FrameContext.h"
-#include <gsl.h>
 
 namespace {
 
-auto rectMoveTo(const RECT &rect, const POINT &p) noexcept -> RECT {
-    const auto size = rectSize(rect);
-    return RECT{p.x, p.y, p.x + size.cx, p.y + size.cy};
-}
+using win32::Dimension;
+using win32::Point;
+using win32::Rect;
 
-auto rotate(const RECT &rect, DXGI_MODE_ROTATION rotation, const SIZE &size) noexcept -> RECT {
+auto rotate(const Rect &rect, DXGI_MODE_ROTATION rotation, const Dimension &spaceDim) noexcept
+    -> Rect {
+
     switch (rotation) {
     case DXGI_MODE_ROTATION_UNSPECIFIED:
     case DXGI_MODE_ROTATION_IDENTITY: return rect;
     case DXGI_MODE_ROTATION_ROTATE90:
-        return {size.cy - rect.bottom, rect.left, size.cy - rect.top, rect.right};
+        return {
+            Point{spaceDim.height - rect.bottom(), rect.left()},
+            Dimension{rect.height(), rect.width()},
+        };
     case DXGI_MODE_ROTATION_ROTATE180:
         return {
-            size.cx - rect.right, size.cy - rect.bottom, size.cx - rect.left, size.cy - rect.top};
+            Point{spaceDim.width - rect.right(), spaceDim.height - rect.bottom()},
+            rect.dimension,
+        };
     case DXGI_MODE_ROTATION_ROTATE270:
-        return {rect.top, size.cx - rect.right, rect.bottom, size.cx - rect.left};
-    default: return {0, 0, 0, 0};
+        return {
+            Point{rect.top(), spaceDim.width - rect.right()},
+            Dimension{rect.height(), rect.width()},
+        };
+    default: return {};
     }
 }
 
@@ -44,7 +52,8 @@ void FrameUpdater::performMoves(const FrameUpdate &data, const FrameContext &con
     const auto moved = data.moved();
     if (moved.empty()) return;
 
-    const auto desktop_size = rectSize(context.output_desc.DesktopCoordinates);
+    const auto desktopRect = Rect::fromRECT(context.output_desc.DesktopCoordinates);
+    const auto &desktopDim = desktopRect.dimension;
 
     if (!m_dx.moveTmp) {
         D3D11_TEXTURE2D_DESC target_description;
@@ -52,8 +61,8 @@ void FrameUpdater::performMoves(const FrameUpdate &data, const FrameContext &con
 
         D3D11_TEXTURE2D_DESC move_description;
         move_description = target_description;
-        move_description.Width = desktop_size.cx;
-        move_description.Height = desktop_size.cy;
+        move_description.Width = desktopDim.width;
+        move_description.Height = desktopDim.height;
         move_description.MipLevels = 1;
         move_description.BindFlags = D3D11_BIND_RENDER_TARGET;
         move_description.MiscFlags = 0;
@@ -68,31 +77,41 @@ void FrameUpdater::performMoves(const FrameUpdate &data, const FrameContext &con
     const auto rotation = context.output_desc.Rotation;
 
     for (auto &move : moved) {
-        const auto source =
-            rotate(rectMoveTo(move.DestinationRect, move.SourcePoint), rotation, desktop_size);
-        const auto dest = rotate(move.DestinationRect, rotation, desktop_size);
+        auto moveDestinationRect = Rect::fromRECT(move.DestinationRect);
+        auto moveSourcePoint = Point::fromPOINT(move.SourcePoint);
+
+        const auto sourceRect =
+            rotate(Rect{moveSourcePoint, moveDestinationRect.dimension}, rotation, desktopDim);
+        const auto dest = rotate(moveDestinationRect, rotation, desktopDim);
 
         D3D11_BOX box;
-        box.left = source.left + target_x;
-        box.top = source.top + target_y;
+        box.left = sourceRect.left() + target_x;
+        box.top = sourceRect.top() + target_y;
         box.front = 0;
-        box.right = source.right + target_x;
-        box.bottom = source.bottom + target_y;
+        box.right = sourceRect.right() + target_x;
+        box.bottom = sourceRect.bottom() + target_y;
         box.back = 1;
 
         m_dx.deviceContext()->CopySubresourceRegion(
-            m_dx.moveTmp.Get(), 0, source.left, source.top, 0, m_dx.target.Get(), 0, &box);
+            m_dx.moveTmp.Get(),
+            0,
+            sourceRect.left(),
+            sourceRect.top(),
+            0,
+            m_dx.target.Get(),
+            0,
+            &box);
 
-        box.left = source.left;
-        box.top = source.top;
-        box.right = source.right;
-        box.bottom = source.bottom;
+        box.left = sourceRect.left();
+        box.top = sourceRect.top();
+        box.right = sourceRect.right();
+        box.bottom = sourceRect.bottom();
 
         m_dx.deviceContext()->CopySubresourceRegion(
             m_dx.target.Get(),
             0,
-            dest.left + target_x,
-            dest.top + target_y,
+            dest.left() + target_x,
+            dest.top() + target_y,
             0,
             m_dx.moveTmp.Get(),
             0,
@@ -104,7 +123,7 @@ void FrameUpdater::updateDirty(const FrameUpdate &data, const FrameContext &cont
     auto dirts = data.dirty();
     if (dirts.empty()) return;
 
-    const auto desktop = gsl::not_null<ID3D11Texture2D *>(data.image.Get());
+    const auto desktop = data.image.Get();
 
     ComPtr<ID3D11ShaderResourceView> shader_resource = m_dx.createShaderTexture(desktop);
     m_dx.deviceContext()->PSSetShaderResources(0, 1, shader_resource.GetAddressOf());
@@ -117,11 +136,11 @@ void FrameUpdater::updateDirty(const FrameUpdate &data, const FrameContext &cont
 
     const auto target_x = context.output_desc.DesktopCoordinates.left - context.offset.x;
     const auto target_y = context.output_desc.DesktopCoordinates.top - context.offset.y;
-    const auto desktop_size = rectSize(context.output_desc.DesktopCoordinates);
+    const auto desktopRect = Rect::fromRECT(context.output_desc.DesktopCoordinates);
     const auto rotation = context.output_desc.Rotation;
 
-    const auto center_x = gsl::narrow_cast<long>(target_description.Width) / 2;
-    const auto center_y = gsl::narrow_cast<long>(target_description.Height) / 2;
+    const auto center_x = static_cast<long>(target_description.Width) / 2;
+    const auto center_y = static_cast<long>(target_description.Height) / 2;
 
     const auto make_vertex = [&](int x, int y) {
         return Vertex{
@@ -163,16 +182,17 @@ void FrameUpdater::updateDirty(const FrameUpdate &data, const FrameContext &cont
     // m_dirtyQuads.reserve(dirts.size());
     // m_dirtyQuads.clear();
     for (const auto &dirt : dirts) {
-        const auto rotated = rotate(dirt, rotation, desktop_size);
+        auto dirtRect = Rect::fromRECT(dirt);
+        const auto rotated = rotate(dirtRect, rotation, desktopRect.dimension);
         // quad_vertices vertices;
         auto &vertices = *static_cast<quad_vertices *>(vertex_ptr);
 
-        vertices[0] = make_vertex(rotated.left, rotated.bottom);
-        vertices[1] = make_vertex(rotated.left, rotated.top);
-        vertices[2] = make_vertex(rotated.right, rotated.bottom);
+        vertices[0] = make_vertex(rotated.left(), rotated.bottom());
+        vertices[1] = make_vertex(rotated.left(), rotated.top());
+        vertices[2] = make_vertex(rotated.right(), rotated.bottom());
         vertices[3] = vertices[2];
         vertices[4] = vertices[1];
-        vertices[5] = make_vertex(rotated.right, rotated.top);
+        vertices[5] = make_vertex(rotated.right(), rotated.top());
 
         // m_dirtyQuads.push_back(vertices);
         vertex_ptr++;

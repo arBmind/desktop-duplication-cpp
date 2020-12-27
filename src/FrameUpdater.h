@@ -1,6 +1,4 @@
 #pragma once
-#include "stable.h"
-
 #include "BaseRenderer.h"
 
 #include <array>
@@ -11,7 +9,7 @@ struct FrameUpdate;
 struct FrameContext;
 
 struct RenderFailure {
-    RenderFailure(HRESULT res, const char *text) noexcept {}
+    RenderFailure(HRESULT, const char *) noexcept {}
 };
 
 struct FrameUpdater {
