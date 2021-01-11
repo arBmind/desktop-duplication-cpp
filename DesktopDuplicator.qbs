@@ -93,7 +93,6 @@ Project {
             "src/meta/flags.h",
             "src/meta/member_method.h",
             "src/meta/scope_guard.h",
-            "src/meta/tuple.h",
             "src/win32/DisplayMonitor.cpp",
             "src/win32/DisplayMonitor.h",
             "src/win32/Dpi.h",

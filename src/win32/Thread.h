@@ -2,7 +2,6 @@
 #include "Handle.h"
 
 #include "meta/member_method.h"
-#include "meta/tuple.h"
 
 namespace win32 {
 

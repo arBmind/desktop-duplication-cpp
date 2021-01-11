@@ -3,8 +3,6 @@
 #include "FrameUpdater.h"
 #include "renderer.h"
 
-#include "meta/tuple.h"
-
 #include <chrono>
 
 namespace deskdup {

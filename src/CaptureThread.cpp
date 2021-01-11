@@ -5,7 +5,6 @@
 #include "CapturedUpdate.h"
 
 #include "meta/scope_guard.h"
-#include "meta/tuple.h"
 
 namespace {
 
