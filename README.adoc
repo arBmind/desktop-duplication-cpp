@@ -1,42 +1,55 @@
 # Windows Desktop Duplication Tool
 
-This is a little tool for live coding presentations.
+This is a nifty tool to host live coding in presentations.
 
-I like to see the IDE on my laptop screen. But I don't want to duplicate the screen, so I can see my private notes.
+You have your IDE and private notes on your main screen.
+The tool only captures the code portion of this screen and shows it fullscreen on your presentation monitor or projector.
 
 image::/docs/usage-schema.png?raw=true[Usage Schema,583,168]
 
-I could not find such a tool, so I created this.
+Personally I use this tool to host C++ usergroup meetings, client meetings and professional C++ trainings.
 
 
 ## Features
 
-By default the primary screen is duplicated to a window.
+By top left part of the primary screen is duplicated to a window on the right part of the same screen.
 
 Interactions:
 
 * Move the window whereever you need it. Beamers for live coding and presentations.
-* You can resize the window as you like. This changes the portion of the screen that is visible.
 * Double Left Mouseclick maximizes the window.
-* Maximized window looses the window frame. Ideal for presentations.
-* pass:[<kbd>Ctrl</kbd>] + pass:[<kbd>Mousewheel ↕</kbd>/<kbd>+</kbd>/<kbd>-</kbd>] allows you to zoom
-* pass:[<kbd>Ctrl</kbd><kbd>Shift</kbd>] + pass:[<kbd>Mousewheel ↕</kbd>] zooms in smaller steps
-* pass:[<kbd>Ctrl</kbd> + <kbd>0</kbd>] reset zoom to 1:1
-* pass:[<kbd>Shift</kbd>] + pass:[<kbd>Left Mouse Button</kbd>] + pass:[<kbd>Dragging ⇔⇕</kbd>] allows you to move the visible portion
-* pass:[2×<kbd>Right Mouse Button</kbd>] + [Focus other Window] will position and resize the other window into the mirrored area. Not all windows will like this.
-* pass:[<kbd>Shift</kbd> + <kbd>←</kbd>/<kbd>↑</kbd>/<kbd>→</kbd>/<kbd>↓</kbd>] aligns the mirrored image to the border
-* pass:[<kbd>Shift</kbd> + <kbd>Right Mouse Button</kbd>] toggle a visualisation of the captured area
-* pass:[<kbd>Ctrl</kbd> + <kbd>P</kbd>] toggle pause. Freezes the image.
+** The entire screen is now mirroring (no window frame)
+** We prevent Windows from going to sleep mode in this presentation mode
+* The Zoom also changes captured area.
+** pass:[<kbd>Ctrl</kbd>] + pass:[<kbd>Mousewheel ↕</kbd>/<kbd>+</kbd>/<kbd>-</kbd>] allows you to zoom
+** pass:[<kbd>Ctrl</kbd><kbd>Shift</kbd>] + pass:[<kbd>Mousewheel ↕</kbd>] zooms in smaller steps
+** pass:[<kbd>Ctrl</kbd> + <kbd>0</kbd>] reset zoom to 1:1
+* Moving the captured area.
+** pass:[<kbd>Shift</kbd>] + pass:[<kbd>Left Mouse Button</kbd>] + pass:[<kbd>Dragging ⇔⇕</kbd>] allows you to move the visible portion
+** pass:[<kbd>Shift</kbd> + <kbd>←</kbd>/<kbd>↑</kbd>/<kbd>→</kbd>/<kbd>↓</kbd>] aligns the mirrored image to the border
+* Move Window into captured area.
+** pass:[2×<kbd>Right Mouse Button</kbd>] + [Focus other Window] will position and resize the other window into the mirrored area. Not all windows will like this.
+* Interactions:
+** Note: You can hover over the window icon in the taskbar and use the buttons there.
+** pass:[<kbd>Shift</kbd> + <kbd>Right Mouse Button</kbd>] toggle a visualisation of the captured area
+** pass:[<kbd>Ctrl</kbd> + <kbd>P</kbd>] toggle pause. Freezes the image.
 
 The tool is optimized to be very response and save CPU time.
 
 ## History
 
-### 2.0 - TBA
+### 2.x - TBA
+
+* Your Ideas are welcome (see Contributions)
+
+### 2.0 - 2021-01-1x
 
 * pause / freeze feature
 * visualization of state in taskbar
-* Your Ideas are welcome (see Contributions)
+* taskbar buttons for interactions
+* mitigated the double buffering bug (last change was missing)
+* performance enhancements (less CPU und GPU required)
+* cleaned up code base (easier to start new features)
 
 ### 1.0 - 2017-04-16 (Revision Easter Release)
 
@@ -46,14 +59,13 @@ The tool is optimized to be very response and save CPU time.
 
 ## Requirements
 
-* DirectX 9+
-* Windows 8.1+
+* DirectX 11
+* Windows 10
 
 
-## Build
+## Build yourself
 
-The tool was build using Visual Studio 2017.
-I made use of modern C++ 14 and beyond features.
+The desktop duplicator was build using QtCreator with Qbs and MSVC2019.
 
 The only other thing you need is the DirectX and Windows and WRL headers. All included in the Windows 10 SDK.
 
