@@ -1,0 +1,48 @@
+name: Build and Release
+
+on: push
+
+jobs:
+  windows-qbs:
+    name: Build with Qbs
+    runs-on: windows-2019
+
+    steps:
+      - name: Install Qbs
+        run: choco install qbs
+
+      - name: Setup Qbs
+        run: |
+          qbs setup-toolchains --detect
+          qbs config defaultProfile MSVC2019-x64
+          qbs config --list profiles
+
+      - name: Git Checkout
+        uses: actions/checkout@v2
+
+      - run: >-
+          qbs build
+          --file DesktopDuplicator.qbs
+          --build-directory ${env:RUNNER_TEMP}\build
+          qbs.installRoot:${{ github.workspace }}/install-root
+          config:Release qbs.defaultBuildVariant:release
+
+      - name: Pack
+        working-directory: ${{ github.workspace }}/install-root
+        run: 7z a ../DesktopDuplicator-${{ github.run_id }}.7z * -r
+
+      - name: Upload
+        uses: actions/upload-artifact@v1
+        with:
+          path: ./DesktopDuplicator-${{ github.run_id }}.7z
+          name: DesktopDuplicator-${{ github.run_id }}.7z
+
+      - name: Upload binaries to release
+        if: contains(github.ref, 'tags/v')
+        uses: svenstaro/upload-release-action@v2
+        with:
+          tag: ${{ github.ref }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          release_name: Release ${{ github.ref }}
+          overwrite: true
+          file: ${{ github.workspace }}/DesktopDuplicator-${{ github.run_id }}.7z
