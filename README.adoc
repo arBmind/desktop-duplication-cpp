@@ -42,7 +42,7 @@ The tool is optimized to be very response and save CPU time.
 
 * Your Ideas are welcome (see Contributions)
 
-### 2.0 - 2021-01-1x
+### 2.0 - 2021-01-17
 
 * pause / freeze feature
 * visualization of state in taskbar
