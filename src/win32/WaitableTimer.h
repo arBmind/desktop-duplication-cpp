@@ -38,7 +38,7 @@ struct WaitableTimer {
         Milliseconds tolerableDelay = {};
     };
     template<auto M>
-    requires(MemberMedthod<decltype(M)>) bool set(
+    requires(MemberMethod<decltype(M)>) bool set(
         SetArgs setArgs, MemberMethodClassArgsTuple<M> &&args) {
         using ArgsTuple = MemberMethodClassArgsTuple<M>;
         struct Helper {

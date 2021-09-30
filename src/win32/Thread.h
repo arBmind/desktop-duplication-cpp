@@ -17,7 +17,7 @@ struct Thread {
     auto handle() const -> HANDLE { return m_threadHandle.get(); }
 
     template<auto M>
-    requires(MemberMedthod<decltype(M)>) void queueUserApc(MemberMethodClassArgsTuple<M> &&args) {
+    requires(MemberMethod<decltype(M)>) void queueUserApc(MemberMethodClassArgsTuple<M> &&args) {
         using ArgsTuple = MemberMethodClassArgsTuple<M>;
         struct Helper {
             static void CALLBACK apc(ULONG_PTR parameter) noexcept {

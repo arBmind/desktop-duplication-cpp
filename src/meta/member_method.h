@@ -8,7 +8,7 @@ template<class Ret, class C, class... Args>
 constexpr auto is_member_method<Ret (C::*)(Args...)> = true;
 
 template<class T>
-concept MemberMedthod = is_member_method<T>;
+concept MemberMethod = is_member_method<T>;
 
 template<class Sig, class T>
 constexpr auto is_member_method_sig = false;
