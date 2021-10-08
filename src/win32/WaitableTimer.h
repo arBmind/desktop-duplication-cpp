@@ -37,20 +37,23 @@ struct WaitableTimer {
         // WakeContext??
         Milliseconds tolerableDelay = {};
     };
-    template<auto M>
-    requires(MemberMethod<decltype(M)>) bool set(
-        SetArgs setArgs, MemberMethodClassArgsTuple<M> &&args) {
+    template<MemberMethod auto M>
+    bool set(SetArgs setArgs, MemberMethodClassArgsTuple<M> &&args) {
         using ArgsTuple = MemberMethodClassArgsTuple<M>;
         struct Helper {
             static void CALLBACK
             apc(LPVOID parameter, DWORD /*dwTimerLowValue*/, DWORD /*dwTimerHighValue*/) noexcept {
-                auto tuplePtr =
-                    std::unique_ptr<ArgsTuple>(reinterpret_cast<ArgsTuple *>(parameter));
+                auto tuplePtr = reinterpret_cast<ArgsTuple *>(parameter);
                 std::apply(M, *tuplePtr);
             }
+            static void freeArgs(void *parameter) {
+                auto tuplePtr =
+                    std::unique_ptr<ArgsTuple>(reinterpret_cast<ArgsTuple *>(parameter));
+                (void)tuplePtr;
+            }
         };
-        auto parameter = std::make_unique<ArgsTuple>(std::move(args));
-        return setImpl(setArgs, &Helper::apc, parameter.release());
+        m_args = UniqueArgPtr{new ArgsTuple(std::move(args)), Deleter{&Helper::freeArgs}};
+        return setImpl(setArgs, &Helper::apc, m_args.get());
     }
 
     void cancel();
@@ -61,6 +64,13 @@ private:
 private:
     Handle m_handle;
     Name m_timerName{};
+    using DeleteFunc = void(void *);
+    struct Deleter {
+        DeleteFunc *func{};
+        void operator()(void *ptr) const { func(ptr); }
+    };
+    using UniqueArgPtr = std::unique_ptr<void, Deleter>;
+    UniqueArgPtr m_args;
 };
 
 } // namespace win32
