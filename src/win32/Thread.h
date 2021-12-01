@@ -30,6 +30,7 @@ struct Thread {
         auto parameter = std::make_unique<ArgsTuple>(std::move(args));
         const auto success = ::QueueUserAPC(
             &Helper::apc, handle(), reinterpret_cast<ULONG_PTR>(parameter.release()));
+        (void)success;
         // if (!success) throw Unexpected{"api::setError failed to queue APC"};
     }
 

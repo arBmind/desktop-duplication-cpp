@@ -175,6 +175,7 @@ void TaskbarList::updateThumbButtons() {
 
     if (!m_menuInitialized) {
         const auto hr = p->ThumbBarAddButtons(m_window, menuSize, menuData.data());
+        (void)hr;
         m_menuInitialized = true;
     }
     else {

@@ -14,6 +14,7 @@ auto GetCurrentThreadHandle() -> HANDLE {
     const auto options = DUPLICATE_SAME_ACCESS;
     const auto success =
         DuplicateHandle(process, thread, process, &output, desiredAccess, inheritHandle, options);
+    (void)success;
     return output;
 }
 
