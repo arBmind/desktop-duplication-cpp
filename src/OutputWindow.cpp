@@ -6,14 +6,18 @@ namespace {
 
 void ShowWindowBorder(HWND windowHandle, bool shown) noexcept {
     auto style = GetWindowLong(windowHandle, GWL_STYLE);
-    const auto flags = WS_BORDER | WS_SIZEBOX | WS_DLGFRAME;
+    auto exstyle = GetWindowLong(windowHandle, GWL_EXSTYLE);
+    const auto flags = WS_THICKFRAME | WS_CAPTION;
     if (shown) {
         style |= flags;
+        exstyle |= WS_EX_OVERLAPPEDWINDOW;
     }
     else {
         style &= ~flags;
+        exstyle &= ~WS_EX_OVERLAPPEDWINDOW;
     }
     SetWindowLong(windowHandle, GWL_STYLE, style);
+    SetWindowLong(windowHandle, GWL_EXSTYLE, exstyle);
 }
 
 } // namespace
@@ -40,7 +44,6 @@ void OutputWindow::update() {
 void OutputWindow::size(const Dimension &dimension, uint32_t flags) {
     m_showsMaximized = (flags == SIZE_MAXIMIZED);
     m_showsOutputRect.dimension = dimension;
-    ShowWindowBorder(m_window.handle(), !m_showsMaximized);
     m_duplicationModel.setIsMaximized(m_showsMaximized);
     m_duplicationModel.setOutputDimension(dimension);
 }
@@ -145,10 +148,7 @@ void OutputWindow::inputKeyDown(uint32_t keyCode) {
 
 void OutputWindow::mouseLeftButtonDoubleClick(
     const win32::Point & /*mousePosition*/, DWORD /*keyState*/) {
-    if (m_window.isMaximized())
-        m_window.showNormal();
-    else
-        m_window.showMaximized();
+    m_duplicationModel.setIsMaximized(!m_duplicationModel.isMaximized());
 }
 
 void OutputWindow::mouseWheel(int wheelDelta, const Point &mousePosition, DWORD keyState) {
@@ -186,6 +186,7 @@ auto OutputWindow::createWindow(const win32::WindowClass &windowClass)
 
 void OutputWindow::visualizeMaximized() {
     auto isMaximized = m_duplicationModel.isMaximized();
+    ShowWindowBorder(m_window.handle(), !isMaximized);
     if (isMaximized) {
         m_window.showMaximized();
     }
