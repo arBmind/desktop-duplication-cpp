@@ -207,7 +207,7 @@ auto DuplicationController::nextFrame(HANDLE) -> ThreadLoop::Keep {
 }
 
 void DuplicationController::setError(std::exception_ptr error) {
-    m_mainThread.queueUserApc<&DuplicationController::main_setError>({this, error});
+    m_mainThread.queueUserApc([this, error](){ main_setError(error); });
 }
 
 void DuplicationController::main_setError(std::exception_ptr exception) {
@@ -224,12 +224,11 @@ void DuplicationController::rethrow() {
 void DuplicationController::setFrame(
     CapturedUpdate &&update, const FrameContext &context, size_t threadIndex) {
 
-    m_mainThread.queueUserApc<&DuplicationController::main_setFrame>(
-        {this, std::move(update), std::ref(context), threadIndex});
+    m_mainThread.queueUserApc([this, update = std::move(update), &context, threadIndex]() mutable { main_setFrame(std::move(update), context, threadIndex); });
 }
 
 void DuplicationController::main_setFrame(
-    CapturedUpdate &update, const FrameContext &context, size_t /*threadIndex*/) {
+    CapturedUpdate &&update, const FrameContext &context, size_t /*threadIndex*/) {
 
     if (m_lastCaptureStatus != CaptureStatus::Enabled) return;
     // m_frameUpdaters[threadIndex].update(update.frame, context);

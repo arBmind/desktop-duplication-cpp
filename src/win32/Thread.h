@@ -1,7 +1,7 @@
 #pragma once
 #include "Handle.h"
 
-#include "meta/member_method.h"
+#include "meta/callback_adapter.h"
 
 namespace win32 {
 
@@ -16,21 +16,11 @@ struct Thread {
 
     auto handle() const -> HANDLE { return m_threadHandle.get(); }
 
-    template<MemberMethod auto M>
-    void queueUserApc(MemberMethodClassArgsTuple<M> &&args) {
-        using ArgsTuple = MemberMethodClassArgsTuple<M>;
-        struct Helper {
-            static void CALLBACK apc(ULONG_PTR parameter) noexcept {
-                auto tuplePtr =
-                    std::unique_ptr<ArgsTuple>(reinterpret_cast<ArgsTuple *>(parameter));
-                std::apply(M, *tuplePtr);
-            }
-        };
-
-        auto parameter = std::make_unique<ArgsTuple>(std::move(args));
-        const auto success = ::QueueUserAPC(
-            &Helper::apc, handle(), reinterpret_cast<ULONG_PTR>(parameter.release()));
-        (void)success;
+    template<class Functor>
+    void queueUserApc(Functor&& functor) {
+        auto callback = UniqueCallbackAdapter<ULONG_PTR>(std::forward<Functor>(functor));
+        const auto success = ::QueueUserAPC(callback.c_callback(), handle(), callback.c_parameter());
+        if (success) callback.release();
         // if (!success) throw Unexpected{"api::setError failed to queue APC"};
     }
 

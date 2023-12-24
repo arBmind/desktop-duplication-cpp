@@ -51,7 +51,7 @@ private:
     void rethrow();
 
     void setFrame(CapturedUpdate &&, const FrameContext &, size_t threadIndex);
-    void main_setFrame(CapturedUpdate &, const FrameContext &, size_t threadIndex);
+    void main_setFrame(CapturedUpdate &&, const FrameContext &, size_t threadIndex);
 
     void retryTimeout();
 

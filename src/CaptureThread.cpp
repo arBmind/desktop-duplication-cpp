@@ -48,10 +48,10 @@ void CaptureThread::start(StartArgs &&args) {
     m_stdThread.emplace([=] { run(); });
 }
 
-void CaptureThread::next() { m_thread.queueUserApc<&CaptureThread::capture_next>({this}); }
+void CaptureThread::next() { m_thread.queueUserApc([this](){ capture_next(); }); }
 
 void CaptureThread::stop() {
-    m_thread.queueUserApc<&CaptureThread::capture_stop>({this});
+    m_thread.queueUserApc([this](){ capture_stop(); });
 
     m_stdThread->join();
     m_stdThread.reset();

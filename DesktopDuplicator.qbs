@@ -89,6 +89,7 @@ Project {
             "src/main.manifest",
             "src/main.rc",
             "src/meta/array_view.h",
+            "src/meta/callback_adapter.h",
             "src/meta/comptr.h",
             "src/meta/flags.h",
             "src/meta/member_method.h",
