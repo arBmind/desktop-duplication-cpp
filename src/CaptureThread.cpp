@@ -158,13 +158,13 @@ auto CaptureThread::captureUpdate() -> std::optional<CapturedUpdate> {
         auto movedPtr = update.frame.buffer.data();
         dxResult = m_dupl->GetFrameMoveRects(
             frameInfo.TotalMetadataBufferSize,
-            reinterpret_cast<DXGI_OUTDUPL_MOVE_RECT *>(movedPtr),
+            std::bit_cast<DXGI_OUTDUPL_MOVE_RECT *>(movedPtr),
             &update.frame.moved_bytes);
         if (IS_ERROR(dxResult)) throw Expected{"Failed to get frame moved rects in capture_thread"};
 
         auto dirtyPtr = movedPtr + update.frame.moved_bytes;
         const auto dirtySize = frameInfo.TotalMetadataBufferSize - update.frame.moved_bytes;
-        dxResult = m_dupl->GetFrameDirtyRects(dirtySize, reinterpret_cast<RECT *>(dirtyPtr), &update.frame.dirty_bytes);
+        dxResult = m_dupl->GetFrameDirtyRects(dirtySize, std::bit_cast<RECT *>(dirtyPtr), &update.frame.dirty_bytes);
         if (IS_ERROR(dxResult)) throw Expected{"Failed to get frame dirty rects in capture_thread"};
     }
     if (!update.frame.dirty().empty()) {
@@ -178,10 +178,10 @@ auto CaptureThread::captureUpdate() -> std::optional<CapturedUpdate> {
         update.pointer.shape_buffer.resize(frameInfo.PointerShapeBufferSize);
 
         auto pointerPtr = update.pointer.shape_buffer.data();
-        const auto pointerSize = update.pointer.shape_buffer.size();
+        const auto pointerSize = static_cast<uint32_t>(update.pointer.shape_buffer.size());
         auto sizeRequiredDummy = UINT{};
         dxResult = m_dupl->GetFramePointerShape(
-            reinterpret_cast<const uint32_t &>(pointerSize),
+            pointerSize,
             pointerPtr,
             &sizeRequiredDummy,
             &update.pointer.shape_info);

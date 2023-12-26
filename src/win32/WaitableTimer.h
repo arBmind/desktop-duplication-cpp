@@ -43,12 +43,12 @@ struct WaitableTimer {
         struct Helper {
             static void CALLBACK
             apc(LPVOID parameter, DWORD /*dwTimerLowValue*/, DWORD /*dwTimerHighValue*/) noexcept {
-                auto tuplePtr = reinterpret_cast<ArgsTuple *>(parameter);
+                auto tuplePtr = std::bit_cast<ArgsTuple *>(parameter);
                 std::apply(M, *tuplePtr);
             }
             static void freeArgs(void *parameter) {
                 auto tuplePtr =
-                    std::unique_ptr<ArgsTuple>(reinterpret_cast<ArgsTuple *>(parameter));
+                    std::unique_ptr<ArgsTuple>(std::bit_cast<ArgsTuple *>(parameter));
                 (void)tuplePtr;
             }
         };

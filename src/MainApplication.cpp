@@ -21,11 +21,11 @@ static auto windowWorkArea() noexcept -> Rect {
 }
 
 auto createWindowClass(HINSTANCE instanceHandle) -> WindowClass::Config {
-    const auto cursor = LoadCursor(nullptr, IDC_CROSS);
+    const auto cursor = ::LoadCursor(nullptr, IDC_CROSS);
     if (!cursor) throw Unexpected{"LoadCursor failed"};
-    LATER(DestroyCursor(cursor));
+    LATER(::DestroyCursor(cursor));
 
-    const auto icon = LoadIconW(instanceHandle, L"desk1");
+    const auto icon = ::LoadIconW(instanceHandle, L"desk1");
 
     auto config = WindowClass::Config{};
     config.instanceHandle = instanceHandle;

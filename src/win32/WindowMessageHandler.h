@@ -172,7 +172,7 @@ private:
 
     static auto handleMessage(void *actual, const WindowMessage &msg) -> OptLRESULT {
         static constexpr auto fromBool = [](bool b) -> OptLRESULT { return b ? OptLRESULT{LRESULT{}} : OptLRESULT{}; };
-        auto m = reinterpret_cast<Actual *>(actual);
+        auto m = std::bit_cast<Actual *>(actual);
         auto &[window, message, wParam, lParam] = msg;
         switch (message) {
         case WM_CREATE: return m->create(std::bit_cast<CREATESTRUCT *>(lParam)), LRESULT{};
@@ -236,9 +236,9 @@ private:
                 GET_APPCOMMAND_LPARAM(lParam), {GET_DEVICE_LPARAM(lParam), GET_KEYSTATE_LPARAM(lParam)});
         case WM_SYSCOMMAND: return m->sysCommand(wParam & 0xFFF0, Point{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)});
 
-        case WM_TIMER: return m->timer(window, wParam, reinterpret_cast<TIMERPROC>(lParam)), LRESULT{};
+        case WM_TIMER: return m->timer(window, wParam, std::bit_cast<TIMERPROC>(lParam)), LRESULT{};
 
-        case WM_DPICHANGED: return m->dpiChanged(Rect::fromRECT(*reinterpret_cast<LPRECT>(lParam))), LRESULT{};
+        case WM_DPICHANGED: return m->dpiChanged(Rect::fromRECT(*std::bit_cast<LPRECT>(lParam))), LRESULT{};
 
         case WM_DEVICECHANGE: return m->deviceChange(wParam, lParam);
 
@@ -255,7 +255,7 @@ private:
         return {}; // unhandled
     }
     static auto handleCommand(void *actual, const WindowMessage &msg) -> OptLRESULT {
-        auto m = reinterpret_cast<Actual *>(actual);
+        auto m = std::bit_cast<Actual *>(actual);
         auto &[window, message, wParam, lParam] = msg;
         switch (HIWORD(wParam)) {
         case 0: return m->menuCommand(LOWORD(wParam));
@@ -264,7 +264,7 @@ private:
         }
     }
     static auto handlePowerBroadcast(void *actual, const WindowMessage &msg) -> OptLRESULT {
-        auto m = reinterpret_cast<Actual *>(actual);
+        auto m = std::bit_cast<Actual *>(actual);
         auto &[window, message, wParam, lParam] = msg;
         switch (wParam) {
         case PBT_APMPOWERSTATUSCHANGE: return m->powerStatusChange(), LRESULT{};
@@ -272,7 +272,7 @@ private:
         case PBT_APMRESUMESUSPEND: return m->powerResumeSuspend(), LRESULT{};
         case PBT_APMSUSPEND: return m->powerSuspend(), LRESULT{};
         case PBT_POWERSETTINGCHANGE:
-            return m->powerSettingChange(reinterpret_cast<POWERBROADCAST_SETTING *>(lParam)), LRESULT{};
+            return m->powerSettingChange(std::bit_cast<POWERBROADCAST_SETTING *>(lParam)), LRESULT{};
         }
         return {};
     }

@@ -80,12 +80,12 @@ struct Window {
     static void enumerate(F &&f) {
         struct Callback {
             static auto CALLBACK enumerateCallback(HWND hwnd, LPARAM lParam) -> BOOL {
-                auto *fp = reinterpret_cast<F *>(lParam);
+                auto *fp = std::bit_cast<F *>(lParam);
                 (*fp)(Window{hwnd});
                 return true;
             }
         };
-        ::EnumWindows(&Callback::enumerateCallback, reinterpret_cast<LPARAM>(&f));
+        ::EnumWindows(&Callback::enumerateCallback, std::bit_cast<LPARAM>(&f));
     }
 
     /// returns the internal handle

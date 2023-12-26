@@ -40,7 +40,7 @@ void ThreadLoop::processCurrentMessages() {
         ::DispatchMessage(&msg);
         if (WM_QUIT == msg.message) {
             m_quit = true;
-            m_returnValue = reinterpret_cast<int &>(msg.wParam);
+            m_returnValue = *std::bit_cast<int*>(msg.wParam);
         }
     }
 }

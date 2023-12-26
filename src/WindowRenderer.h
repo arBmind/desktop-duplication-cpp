@@ -30,7 +30,7 @@ struct WindowRenderer {
         void setCallbacks(T *p) {
             callbackPtr = p;
             setErrorCallback = [](void *ptr, std::exception_ptr exception) {
-                auto *cb = reinterpret_cast<T *>(ptr);
+                auto *cb = std::bit_cast<T *>(ptr);
                 cb->setError(exception);
             };
         }

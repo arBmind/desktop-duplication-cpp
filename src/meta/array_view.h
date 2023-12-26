@@ -1,5 +1,6 @@
 #pragma once
 
+#include <bit>
 #include <vector>
 
 template<class T>
@@ -17,11 +18,11 @@ struct array_view {
         : array_view(a, S) {}
 
     static array_view from_bytes(uint8_t *data, size_t bytes) noexcept {
-        return array_view(reinterpret_cast<T *>(data), bytes / sizeof(T));
+        return array_view(std::bit_cast<T *>(data), bytes / sizeof(T));
     }
     static array_view from_bytes(const uint8_t *data, size_t bytes) noexcept {
         [[gsl::suppress("26490")]] // required by definition
-        return array_view(reinterpret_cast<T *>(data), bytes / sizeof(T));
+        return array_view(std::bit_cast<T *>(data), bytes / sizeof(T));
     }
 
     constexpr size_t size() const noexcept { return size_m; }

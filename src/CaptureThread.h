@@ -46,11 +46,11 @@ struct CaptureThread {
         void setCallbacks(T *p) {
             callbackPtr = p;
             setErrorCallback = [](void *ptr, std::exception_ptr exception) {
-                auto *cb = reinterpret_cast<T *>(ptr);
+                auto *cb = std::bit_cast<T *>(ptr);
                 cb->setError(exception);
             };
             setFrameCallback = [](void *ptr, CapturedUpdate &&update, const FrameContext &context, size_t threadIndex) {
-                auto *cb = reinterpret_cast<T *>(ptr);
+                auto *cb = std::bit_cast<T *>(ptr);
                 cb->setFrame(std::move(update), context, threadIndex);
             };
         }

@@ -212,7 +212,7 @@ void WindowRenderer::updatePointerShape(const PointerBuffer &pointer) {
     //	auto width = texture_description.Width;
     //	auto height = texture_description.Height;
     //	auto pitch = resource_data.SysMemPitch;
-    //	const uint8_t* data = reinterpret_cast<const uint8_t*>(resource_data.pSysMem);
+    //	const uint8_t* data = std::bit_cast<const uint8_t*>(resource_data.pSysMem);
     //	for (auto row = 0u; row < height; ++row) {
     //		for (auto col = 0u; col < width; ++col) {
     //			auto addr = (col * 4) + (row * pitch);

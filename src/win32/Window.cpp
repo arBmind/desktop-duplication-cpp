@@ -9,13 +9,13 @@ namespace {
 auto extractWindow(HWND windowHandle, UINT message, LPARAM lParam) -> WindowWithMessages * {
     switch (message) {
     case WM_NCCREATE: {
-        auto create_struct = reinterpret_cast<LPCREATESTRUCT>(lParam);
+        auto create_struct = std::bit_cast<LPCREATESTRUCT>(lParam);
         auto *window = static_cast<WindowWithMessages *>(create_struct->lpCreateParams);
-        ::SetWindowLongPtrW(windowHandle, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(window));
+        ::SetWindowLongPtrW(windowHandle, GWLP_USERDATA, std::bit_cast<LONG_PTR>(window));
         // windowClass->handleWindowSetup(window);
         return window;
     }
-    default: return reinterpret_cast<WindowWithMessages *>(::GetWindowLongPtr(windowHandle, GWLP_USERDATA));
+    default: return std::bit_cast<WindowWithMessages *>(::GetWindowLongPtr(windowHandle, GWLP_USERDATA));
     }
 }
 

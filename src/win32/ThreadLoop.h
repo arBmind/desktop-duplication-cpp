@@ -17,7 +17,7 @@ struct ThreadLoop {
         constexpr static auto make(T *cb) -> Callback {
             return {
                 [](void *ptr, HANDLE handle) -> Keep {
-                    auto p = reinterpret_cast<T *>(ptr);
+                    auto p = std::bit_cast<T *>(ptr);
                     return p(handle);
                 },
                 cb};
@@ -26,7 +26,7 @@ struct ThreadLoop {
             requires(MemberMedthodSig<Keep(HANDLE), decltype(M)>)
         constexpr static auto makeMember(MemberMethodClass<M> *obj) -> Callback {
             Func *func = [](void *ptr, HANDLE handle) -> Keep {
-                auto p = reinterpret_cast<MemberMethodClass<M> *>(ptr);
+                auto p = std::bit_cast<MemberMethodClass<M> *>(ptr);
                 return (p->*M)(handle);
             };
             return {func, obj};

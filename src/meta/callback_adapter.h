@@ -1,4 +1,5 @@
 #pragma once
+#include <bit>
 #include <memory>
 #include <type_traits>
 
@@ -25,25 +26,25 @@ class UniqueCallbackAdapter final {
                 new (&result) Functor(std::forward<Functor>(functor));
                 return result;
             }
-            else return reinterpret_cast<Parameter>(std::make_unique<Functor>(std::forward<Functor>(functor)).release());
+            else return std::bit_cast<Parameter>(std::make_unique<Functor>(std::forward<Functor>(functor)).release());
         }
         static void deleter(Parameter param) {
             if constexpr (is_small) {
-                auto& functor = *std::launder(reinterpret_cast<Functor*>(&param));
+                auto& functor = *std::launder(std::bit_cast<Functor*>(&param));
                 functor.~Functor();
             }
             else {
-                std::unique_ptr<Functor>(reinterpret_cast<Functor*>(param));
+                std::unique_ptr<Functor>(std::bit_cast<Functor*>(param));
             }
         }
         static void invoker(Parameter param) {
             if constexpr (is_small) {
-                auto& functor = *std::launder(reinterpret_cast<Functor*>(&param));
+                auto& functor = *std::launder(std::bit_cast<Functor*>(&param));
                 functor();
                 functor.~Functor();
             }
             else {
-                auto functor_ptr = std::unique_ptr<Functor>(reinterpret_cast<Functor*>(param));
+                auto functor_ptr = std::unique_ptr<Functor>(std::bit_cast<Functor*>(param));
                 (*functor_ptr)();
             }
         }

@@ -37,12 +37,12 @@ struct DisplayMonitor {
     static void enumerateAll(F &&f) {
         struct Callback {
             static auto CALLBACK enumerateCallback(HMONITOR hMonitor, HDC, LPRECT rect, LPARAM lParam) -> BOOL {
-                auto *fp = reinterpret_cast<F *>(lParam);
+                auto *fp = std::bit_cast<F *>(lParam);
                 (*fp)(DisplayMonitor{hMonitor}, Rect::fromRECT(*rect));
                 return true;
             }
         };
-        ::EnumDisplayMonitors(nullptr, nullptr, &Callback::enumerateCallback, reinterpret_cast<LPARAM>(&f));
+        ::EnumDisplayMonitors(nullptr, nullptr, &Callback::enumerateCallback, std::bit_cast<LPARAM>(&f));
     }
 
     /// true if handle is valid
