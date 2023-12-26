@@ -1,14 +1,30 @@
 # Windows Desktop Duplication Tool
 
-This is a nifty tool to host live coding in presentations.
+This is a nifty tool to host live coding in presentations or online screen grabbers.
+
+## Two in One
+
+Since 3.0 we have two modes of operations.
+
+### Presenter Mode
 
 You have your IDE and private notes on your main screen.
 The tool only captures the code portion of this screen and shows it fullscreen on your presentation monitor or projector.
 
 image::/docs/usage-schema.png?raw=true[Usage Schema,583,168]
 
-Personally I use this tool to host C++ usergroup meetings, client meetings and professional C++ trainings.
+Personally I use this mode to host C++ usergroup meetings, client meetings and professional C++ trainings.
 
+### Capture Area Mode
+
+You select a portion of the screen by moving the Window around.
+Once you go "Live" (Context Menu or Taskbar Menu) the Window will move into the background and display whatever is displayed on top of it.
+
+Hint: Your mouse cursors will trail if you have no window in front of it.
+
+Personally I use this mode to share part of my screen in Jitsi, Matrix, Big Blue Button, Teams, Zoom or any other conferencing tool.
+
+Note: As soon as you select the window again, the capture will be pause and the contents of the window will be transparent to allow repositioning of the window without flickering.
 
 ## Features
 
@@ -17,6 +33,11 @@ By top left part of the primary screen is duplicated to a window on the right pa
 Interactions:
 
 * Move the window whereever you need it. Beamers for live coding and presentations.
+* Right click with your mouse to open a context menu
+** Pause / Start the screen grabbing operations
+** Select some common resolutions for your screen share window
+** Select the monitor to capture for Presenter Mode (Capture Area mode will select the monitor the window is in)
+** Switch between Presenter and Capture Area Mode
 * Double Left Mouseclick maximizes the window.
 ** The entire screen is now mirroring (no window frame)
 ** We prevent Windows from going to sleep mode in this presentation mode
@@ -38,9 +59,18 @@ The tool is optimized to be very response and save CPU time.
 
 ## History
 
-### 2.x - TBA
+### 3.x - TBA
 
 * Your Ideas are welcome (see Contributions)
+
+### 3.0-beta - 2023-12-26
+
+* new capture area mode
+* keep capture alive while moving or resizing the window
+* select the monitor where the capture is taken
+* capture area indicator is now fully transparent for clicks
+* added context menu
+* also show live and frozen state in capture area border colors
 
 ### 2.0 - 2021-01-17
 
