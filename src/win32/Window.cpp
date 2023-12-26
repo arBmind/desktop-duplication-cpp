@@ -15,9 +15,7 @@ auto extractWindow(HWND windowHandle, UINT message, LPARAM lParam) -> WindowWith
         // windowClass->handleWindowSetup(window);
         return window;
     }
-    default:
-        return reinterpret_cast<WindowWithMessages *>(
-            ::GetWindowLongPtr(windowHandle, GWLP_USERDATA));
+    default: return reinterpret_cast<WindowWithMessages *>(::GetWindowLongPtr(windowHandle, GWLP_USERDATA));
     }
 }
 
@@ -28,11 +26,8 @@ auto ensureInstance(WindowClass::Config &config) {
     return config.instanceHandle;
 }
 
-auto createWindow(
-    void *window,
-    const WindowWithMessages::Config &config,
-    HINSTANCE instance,
-    const Name &className) -> HWND {
+auto createWindow(void *window, const WindowWithMessages::Config &config, HINSTANCE instance, const Name &className)
+    -> HWND {
     return ::CreateWindowExW(
         config.style.exStyle,
         className.data(),
@@ -72,6 +67,16 @@ auto Window::clientRect() const -> Rect {
     return Rect::fromRECT(rect);
 }
 
+auto Window::clientOffset() const -> Point {
+    auto windowInfo = WINDOWINFO{};
+    windowInfo.cbSize = sizeof(WINDOWINFO);
+    ::GetWindowInfo(m_windowHandle, &windowInfo);
+    return Point{
+        .x = windowInfo.rcWindow.left - windowInfo.rcClient.left,
+        .y = windowInfo.rcWindow.top - windowInfo.rcClient.top,
+    };
+}
+
 auto Window::placement() const -> Placement {
     auto windowPlacement = WINDOWPLACEMENT{};
     windowPlacement.length = sizeof(WINDOWPLACEMENT);
@@ -102,8 +107,7 @@ bool Window::isVisible() const { return ::IsWindowVisible(m_windowHandle); }
 
 auto Window::dpiAwareness() const -> DpiAwareness {
     auto context = ::GetWindowDpiAwarenessContext(m_windowHandle);
-    if (context == DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)
-        return DpiAwareness::PerMonitorAwareV2;
+    if (context == DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) return DpiAwareness::PerMonitorAwareV2;
     if (context == DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE) return DpiAwareness::PerMonitorAware;
     if (context == DPI_AWARENESS_CONTEXT_SYSTEM_AWARE) return DpiAwareness::SystemAware;
     if (context == DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED) return DpiAwareness::UnawareGdiScaled;
@@ -138,6 +142,17 @@ auto Window::text() const -> String {
 
 void Window::show() { ::ShowWindowAsync(m_windowHandle, SW_SHOW); }
 void Window::hide() { ::ShowWindowAsync(m_windowHandle, SW_HIDE); }
+
+void Window::toBottom() {
+    auto flags = SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE;
+    ::SetWindowPos(m_windowHandle, HWND_BOTTOM, 0, 0, 0, 0, flags);
+}
+
+void Window::toTop() {
+    auto flags = SWP_NOMOVE | SWP_NOSIZE;
+    ::SetWindowPos(m_windowHandle, ::GetTopWindow(nullptr), 0, 0, 0, 0, flags);
+    ::SetForegroundWindow(m_windowHandle);
+}
 
 void Window::showNormal() { ::ShowWindowAsync(m_windowHandle, SW_SHOWNORMAL); }
 void Window::showMaximized() { ::ShowWindowAsync(m_windowHandle, SW_SHOWMAXIMIZED); }
@@ -174,7 +189,7 @@ void Window::moveClient(const Rect &rect) {
 
 void Window::setPosition(const Point &point) {
     auto flags = SWP_NOZORDER | SWP_NOSIZE | SWP_NOSENDCHANGING | SWP_ASYNCWINDOWPOS;
-    ::SetWindowPos(m_windowHandle, 0, point.x, point.y, 0, 0, flags);
+    ::SetWindowPos(m_windowHandle, nullptr, point.x, point.y, 0, 0, flags);
 }
 
 bool Window::setPlacement(const Placement &placement) {
@@ -195,6 +210,25 @@ bool Window::setPlacement(const Placement &placement) {
     return 0 != ::SetWindowPlacement(m_windowHandle, &windowPlacement);
 }
 
+void Window::styleNonLayered() {
+    auto exStyle = GetWindowLong(m_windowHandle, GWL_EXSTYLE) & ~WS_EX_LAYERED;
+    SetWindowLong(m_windowHandle, GWL_EXSTYLE, exStyle);
+}
+
+void Window::styleLayeredColorKey(uint32_t color) {
+    auto exStyle = GetWindowLong(m_windowHandle, GWL_EXSTYLE) | WS_EX_LAYERED;
+    SetWindowLong(m_windowHandle, GWL_EXSTYLE, exStyle);
+    const auto alpha = BYTE{0u};
+    SetLayeredWindowAttributes(m_windowHandle, color, alpha, LWA_COLORKEY);
+}
+
+void Window::styleLayeredAlpha(uint8_t alpha) {
+    auto exStyle = GetWindowLong(m_windowHandle, GWL_EXSTYLE) | WS_EX_LAYERED;
+    SetWindowLong(m_windowHandle, GWL_EXSTYLE, exStyle);
+    const auto color = DWORD{0u};
+    SetLayeredWindowAttributes(m_windowHandle, color, alpha, LWA_ALPHA);
+}
+
 //
 // WindowWithMessages
 //
@@ -211,9 +245,7 @@ void WindowWithMessages::resetMessageHandler() {
     m_messageHandlerPtr = nullptr;
 }
 
-auto WindowWithMessages::noopMessageHandler(void *, const WindowMessage &) -> OptLRESULT {
-    return {};
-}
+auto WindowWithMessages::noopMessageHandler(void *, const WindowMessage &) -> OptLRESULT { return {}; }
 
 auto WindowWithMessages::handleMessage(const WindowMessage &msg) -> OptLRESULT {
     return m_messageHandlerFunc(m_messageHandlerPtr, msg);
@@ -234,6 +266,11 @@ auto WindowClass::createWindow(WindowWithMessages::Config config) const -> Windo
     return WindowWithMessages{config, m_instanceHandle, m_className};
 }
 
+void WindowClass::recreateWindow(WindowWithMessages &wnd, Window::Config config) const {
+    wnd.~WindowWithMessages();
+    new (&wnd) WindowWithMessages{config, m_instanceHandle, m_className};
+}
+
 auto WindowClass::registerWindowClass(const Config &config) -> ATOM {
     auto windowClass = WNDCLASSEXW{};
     windowClass.cbSize = sizeof(WNDCLASSEXW);
@@ -252,8 +289,7 @@ auto WindowClass::registerWindowClass(const Config &config) -> ATOM {
     return RegisterClassExW(&windowClass);
 }
 
-auto CALLBACK WindowClass::staticWindowProc(
-    HWND windowHandle, UINT message, WPARAM wParam, LPARAM lParam) -> LRESULT {
+auto CALLBACK WindowClass::staticWindowProc(HWND windowHandle, UINT message, WPARAM wParam, LPARAM lParam) -> LRESULT {
 
     auto *window = extractWindow(windowHandle, message, lParam);
     if (window) {

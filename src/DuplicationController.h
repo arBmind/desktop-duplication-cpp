@@ -1,9 +1,10 @@
 #pragma once
 #include "CaptureThread.h"
 #include "FrameUpdater.h"
+#include "MainController.h"
 #include "Model.h"
 #include "PointerUpdater.h"
-#include "WindowRenderer.h"
+#include "RenderThread.h"
 
 #include "win32/Thread.h"
 #include "win32/ThreadLoop.h"
@@ -21,65 +22,87 @@ using win32::Thread;
 using win32::ThreadLoop;
 using win32::WaitableTimer;
 using win32::Window;
-
-using CaptureThreadPtr = std::unique_ptr<CaptureThread>;
+using win32::WindowClass;
+using win32::WindowWithMessages;
 
 /// main controller that manages the duplication party
+/// notes:
+/// * all public methods are called from the MainThread
+/// * capturing happens in the CaptureThread
+/// * rendering happens in the RenderThread
 struct DuplicationController {
-    DuplicationController(Model &, ThreadLoop &, Window &);
+    struct Args {
+        WindowClass const &windowClass;
+        MainController &mainController;
+        Thread &mainThread;
+        WindowWithMessages &outputWindow;
+    };
+    DuplicationController(Args const &);
+    ~DuplicationController();
 
-    void update();
+    void updateDuplicationStatus(DuplicationStatus);
+    void updateOutputDimension(Dimension);
+    void updateOutputZoom(float zoom);
+    void updateCaptureOffset(Vec2f);
+    void restart();
 
 private:
+    enum class Status {
+        Stopped, // from Stopping
+        Initial = Stopped,
+        Starting, // from Initial/Stopped
+        Live, // from Starting or Resuming
+        Stopping, // from Live
+        Paused, // from Live
+        Resuming, // from Paused
+        RetryStarting, // from Starting
+        Failed, // given up
+    };
+
+private:
+    auto renderThreadConfig(OperationModeLens const &) -> RenderThread::Config;
+    auto captureThreadConfig() -> CaptureThread::Config;
+
+    void startOnMain();
+    void pauseOnMain();
+    void stopOnMain();
+    void resetOnMain();
+    void updateStatusOnMain(Status);
+
     void initCaptureThread();
     void updateCaptureStatus();
-    void start();
     void startCaptureThread(HANDLE targetHandle);
-    void stop();
     void awaitRetry();
-
-    void render();
-    void captureNextFrame();
-
-    void awaitNextFrame();
-    void stopNextFrame();
-    auto nextFrame(HANDLE) -> ThreadLoop::Keep;
-
-    friend struct ::CaptureThread;
-    void setError(std::exception_ptr);
-    void main_setError(std::exception_ptr);
-    void rethrow();
-
-    void setFrame(CapturedUpdate &&, const FrameContext &, size_t threadIndex);
-    void main_setFrame(CapturedUpdate &&, const FrameContext &, size_t threadIndex);
-
     void retryTimeout();
 
 private:
-    CaptureModel &m_captureModel;
-    DuplicationModel &m_duplicationModel;
-    ThreadLoop &m_threadLoop;
-    Window &m_outputWindow;
+    auto forwardRenderMessage(const win32::WindowMessage &) -> win32::OptLRESULT;
 
-    Thread m_mainThread;
-    Optional<CaptureThread> m_captureThread;
-    bool m_triggerCaptureThread{};
+private:
+    friend struct ::WindowRenderer;
+    friend struct ::CaptureThread;
+    void setError(std::exception_ptr); // called on CaptureThread or RenderThread
+    void setFrame(CapturedUpdate &&, const FrameContext &, size_t threadIndex); // called on RenderThread
 
-    CaptureStatus m_lastCaptureStatus{};
-    bool m_isFreezed{};
+private:
+    void setFrameOnRender(CapturedUpdate &&, const FrameContext &, size_t threadIndex);
+
+private:
+    std::atomic<Status> m_status{};
+    Rect m_displayRect{};
+
+    WindowClass const &m_windowClass;
+    MainController &m_controller;
+    Thread &m_mainThread;
+    WindowWithMessages &m_outputWindow;
+    WindowWithMessages m_renderWindow;
+
+    RenderThread m_renderThread;
+    CaptureThread m_captureThread;
+
     ComPtr<ID3D11Texture2D> m_targetTexture;
-    WindowRenderer m_windowRenderer;
-
     Optional<FrameUpdater> m_frameUpdater;
     PointerUpdater m_pointerUpdater;
-    bool m_hasFrameUpdated{};
-    bool m_hasLastUpdate{};
-
-    bool m_waitFrame = false;
-    Handle m_waitFrameHandle{};
-
-    bool m_hasError = false;
-    std::exception_ptr m_error;
 
     WaitableTimer m_retryTimer;
 };

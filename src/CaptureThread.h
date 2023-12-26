@@ -35,7 +35,6 @@ struct CaptureThread {
     using SetFrameFunc = void(void *, CapturedUpdate &&, const FrameContext &, size_t threadIndex);
 
     struct Config {
-        int display{}; // index of the display to capture
         size_t threadIndex{}; // identifier to this thread
 
         SetErrorFunc *setErrorCallback{&CaptureThread::noopSetErrorCallback};
@@ -50,10 +49,7 @@ struct CaptureThread {
                 auto *cb = reinterpret_cast<T *>(ptr);
                 cb->setError(exception);
             };
-            setFrameCallback = [](void *ptr,
-                                  CapturedUpdate &&update,
-                                  const FrameContext &context,
-                                  size_t threadIndex) {
+            setFrameCallback = [](void *ptr, CapturedUpdate &&update, const FrameContext &context, size_t threadIndex) {
                 auto *cb = reinterpret_cast<T *>(ptr);
                 cb->setFrame(std::move(update), context, threadIndex);
             };
@@ -66,6 +62,7 @@ struct CaptureThread {
     ~CaptureThread();
 
     struct StartArgs {
+        int display{}; // index of the display to capture
         ComPtr<ID3D11Device> device; // device used for capturing
         Point offset{}; // offset from desktop to target coordinates
     };
@@ -86,11 +83,11 @@ private:
     auto captureUpdate() -> std::optional<CapturedUpdate>;
 
     static void noopSetErrorCallback(void *, std::exception_ptr) {}
-    static void
-    noopSetFrameCallback(void *, CapturedUpdate &&, const FrameContext &, size_t /*threadIndex*/) {}
+    static void noopSetFrameCallback(void *, CapturedUpdate &&, const FrameContext &, size_t /*threadIndex*/) {}
 
 private:
     Config m_config;
+    int m_display{};
 
     FrameContext m_context{};
     ComPtr<ID3D11Device> m_device{};
@@ -100,5 +97,5 @@ private:
     bool m_doCapture = true;
 
     ComPtr<IDXGIOutputDuplication> m_dupl;
-    std::optional<std::thread> m_stdThread;
+    std::optional<std::jthread> m_stdThread;
 };

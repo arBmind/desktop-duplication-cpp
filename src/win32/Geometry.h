@@ -61,6 +61,10 @@ struct Rect {
         };
     }
 
+    constexpr auto contains(Point p) const -> bool {
+        return left() <= p.x && right() > p.x && top() <= p.y && bottom() > p.y;
+    }
+
     // convinience accessors
     constexpr auto left() const -> int { return topLeft.x; }
     constexpr auto top() const -> int { return topLeft.y; }

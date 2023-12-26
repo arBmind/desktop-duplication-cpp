@@ -1,7 +1,9 @@
 #pragma once
 #include "Dpi.h"
 #include "Geometry.h"
-#include "MessageHandler.h"
+#include "WindowMessageHandler.h"
+
+#include "meta/member_method.h"
 
 #include <chrono>
 #include <optional>
@@ -36,12 +38,12 @@ struct WindowStyle {
     DWORD exStyle{};
     DWORD style{};
 
-    static auto topmostOverlay() -> WindowStyle {
-        return {WS_EX_LAYERED | WS_EX_TOPMOST, WS_POPUP};
-    }
-    static auto overlappedWindow() -> WindowStyle {
-        return {WS_EX_OVERLAPPEDWINDOW, WS_OVERLAPPEDWINDOW};
-    }
+    static auto child() -> WindowStyle { return {0, WS_CHILD}; }
+    static auto popup() -> WindowStyle { return {WS_EX_TOOLWINDOW, WS_POPUP}; }
+    static auto overlappedWindow() -> WindowStyle { return {WS_EX_OVERLAPPEDWINDOW, WS_OVERLAPPEDWINDOW}; }
+
+    auto topMost() const -> WindowStyle { return {exStyle | WS_EX_TOPMOST, style}; }
+    auto transparent() const -> WindowStyle { return {exStyle | WS_EX_TRANSPARENT, style}; }
 };
 
 /// convinient wrapper to ease working with windows
@@ -94,6 +96,7 @@ struct Window {
     // note: requires extra dwn dll - enable if needed.
     // auto extendedFrameRect() const -> Rect; ///< returns border rect
     auto clientRect() const -> Rect;
+    auto clientOffset() const -> Point;
 
     /// store current window placement
     auto placement() const -> Placement;
@@ -110,6 +113,8 @@ struct Window {
 
     void show(); ///< send show command to window (last state is kept)
     void hide(); ///< send hide command (will window will disapear)
+    void toBottom();
+    void toTop();
 
     void showNormal(); ///< send show normal (restores from maximized)
     void showMaximized(); ///< send show maximized command
@@ -123,6 +128,11 @@ struct Window {
     void moveClient(const Rect &); ///< move window client rect
     void setPosition(const Point &); ///< move top left corner (keeping size)
     bool setPlacement(const Placement &); ///< restore a placement
+
+    void styleNonLayered();
+    void styleTransparent();
+    void styleLayeredColorKey(uint32_t colorKey);
+    void styleLayeredAlpha(uint8_t alpha);
 
 private:
     friend struct WindowWithMessages;
@@ -142,18 +152,28 @@ struct WindowWithMessages final : Window {
 
     /// defines the proper message handler
     template<class T>
-    void setMessageHandler(MessageHandler<T> *handler) {
+    void setMessageHandler(WindowMessageHandler<T> *handler) {
         m_messageHandlerFunc = &handler->handleMessage;
         m_messageHandlerPtr = handler;
     }
+    template<auto M, class T = MemberMethodClass<M>>
+        requires(MemberMedthodSig<OptLRESULT(const WindowMessage &), decltype(M)>)
+    void setCustomHandler(T *ptr) {
+        m_messageHandlerFunc = [](void *ptr, const WindowMessage &msg) -> OptLRESULT {
+            auto p = std::bit_cast<T *>(ptr);
+            return (p->*M)(msg);
+        };
+        m_messageHandlerPtr = ptr;
+    }
     /// restore the noop message handler
     void resetMessageHandler();
+
+    auto handleMessage(const WindowMessage &msg) -> OptLRESULT;
 
 private:
     using HandleFunc = auto(void *, const WindowMessage &) -> OptLRESULT;
     static auto noopMessageHandler(void *, const WindowMessage &) -> OptLRESULT;
 
-    auto handleMessage(const WindowMessage &msg) -> OptLRESULT;
     HandleFunc *m_messageHandlerFunc{&WindowWithMessages::noopMessageHandler};
     void *m_messageHandlerPtr{};
 
@@ -188,6 +208,8 @@ struct WindowClass final {
     /// note: you should set a message handler and probably show the window
     auto createWindow(WindowWithMessages::Config) const -> WindowWithMessages;
 
+    void recreateWindow(WindowWithMessages &wnd, WindowWithMessages::Config) const;
+
 private:
     HINSTANCE m_instanceHandle{};
     Name m_className{};
@@ -195,8 +217,7 @@ private:
     static auto registerWindowClass(const Config &config) -> ATOM;
     ATOM m_atom{};
 
-    static auto CALLBACK staticWindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
-        -> LRESULT;
+    static auto CALLBACK staticWindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam) -> LRESULT;
 };
 
 } // namespace win32

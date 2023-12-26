@@ -1,9 +1,14 @@
 #pragma once
+#include "win32/DisplayMonitor.h"
 #include "win32/Geometry.h"
+
+#include <string>
+#include <vector>
 
 namespace deskdup {
 
 using win32::Dimension;
+using win32::MonitorInfo;
 using win32::Point;
 using win32::Rect;
 using win32::Vec2f;
@@ -14,149 +19,121 @@ enum class SystemStatus {
     Yellow,
     Red,
 };
-enum class CaptureStatus {
-    Disabled,
-    Error,
-    Enabling,
-    Enabled,
+enum class OperationMode {
+    PresentMirror, ///< capture one area of screen and present the mirror somewhere else
+    CaptureArea, ///< capture the same area and replay it for capture a window to pick it up
+};
+
+enum class CaptureVisualization {
+    Border,
+    // Stripes,
 };
 enum class DuplicationStatus {
     Live,
-    Paused,
-    Blacked,
+    Pause,
+};
+enum class PauseRendering {
+    LastFrame,
+    Black,
+    White,
+};
+using MonitorIndex = int;
+
+/// Data that should be stored from one session to the next
+/// note: some sanitization is needed to avoid unusable state (like monitor does not exist)
+struct Config final {
+    OperationMode operationMode{};
+    PauseRendering pauseRendering{};
+
+    MonitorIndex captureMonitor{}; // 0 = main monitor
+    Vec2f captureOffset{}; ///< relative to the capture monitor
+    bool isCaptureAreaShown{};
+    CaptureVisualization captureVisualization{};
+
+    Point outputTopLeft{};
+    Dimension outputDimension{};
+    float outputZoom{1.0f};
+
+    auto outputRect() const -> Rect { return Rect{outputTopLeft, outputDimension}; }
 };
 
-struct CaptureModel {
-    int monitor() const { return m_monitor; }
-    auto virtualRect() const -> Rect { return m_virtualRect; }
-    auto status() const -> CaptureStatus { return m_status; }
+struct Monitor final {
+    HMONITOR handle{};
+    MonitorInfo info{};
 
-    void setVirtualRect(const Rect &rect) { m_virtualRect = rect; }
-    void setStatus(CaptureStatus status) { m_status = status; }
+    bool operator==(Monitor const &) const = default;
+};
+using Monitors = std::vector<Monitor>;
 
-private:
-    int m_monitor{};
-    Rect m_virtualRect{};
-    CaptureStatus m_status{};
+/// Data that is produced locally and is valid only at the current state
+struct State final {
+    Config config{};
+    bool outputMaximized{};
+    SystemStatus systemStatus{};
+    DuplicationStatus duplicationStatus{};
+    Monitors monitors{}; ///< all currently available monitors
+    MonitorIndex outputMonitor{}; ///<
+    Rect captureMonitorRect{}; ///<
+
+    auto computeIndexForMonitorHandle(HMONITOR) -> MonitorIndex;
 };
 
-struct DuplicationModel {
-    auto outputRect() const -> const Rect & { return m_outputRect; }
-    auto status() const -> DuplicationStatus { return m_status; }
-    bool isFreezed() const { return m_status != DuplicationStatus::Live; }
-    bool isMaximized() const { return m_isMaximized; }
-    auto zoom() const -> float { return m_zoom; }
-    auto captureOffset() const -> const Vec2f & { return m_captureOffset; }
+struct PresentMirrorLens final {
+    static auto captureMonitor(State const &m) -> MonitorIndex { return m.config.captureMonitor; }
+    static auto captureOffset(State const &m) -> Vec2f { return m.config.captureOffset; }
+    static auto outputZoom(State const &m) -> float { return m.config.outputZoom; }
 
-    void setOutputRect(const Rect &rect) { m_outputRect = rect; }
-    void setOutputTopLeft(const Point &topLeft) { m_outputRect.topLeft = topLeft; }
-    void setOutputDimension(const Dimension &dimension) { m_outputRect.dimension = dimension; }
+    // note: depends on captureMonitorRect, captureOffset, outputDimension, outputZoom
+    static auto captureAreaRect(State const &m) -> Rect;
+};
 
-    void setStatus(DuplicationStatus status) { m_status = status; }
-    void toggleFreezed() {
-        if (m_status == DuplicationStatus::Paused) {
-            m_status = DuplicationStatus::Live;
+struct CaptureAreaLens final {
+    static auto captureMonitor(State const &m) -> MonitorIndex { return m.outputMonitor; }
+    static auto captureOffset(State const &m) -> Vec2f;
+    static auto outputZoom(State const &) -> float { return 1.0f; }
+    static auto captureAreaRect(State const &m) -> Rect { return m.config.outputRect(); }
+};
+
+/// Combination of the application data
+/// Adds accessors that give different answers depending on the state of the program
+struct OperationModeLens final {
+    explicit OperationModeLens(State const &state)
+        : m{state} {}
+
+    auto state() const -> State const & { return m; }
+    auto config() const -> Config const & { return m.config; }
+
+    auto captureMonitor() const -> MonitorIndex {
+        switch (m.config.operationMode) {
+        case OperationMode::PresentMirror: return PresentMirrorLens::captureMonitor(m);
+        case OperationMode::CaptureArea: return CaptureAreaLens::captureMonitor(m);
         }
-        else if (m_status == DuplicationStatus::Live) {
-            m_status = DuplicationStatus::Paused;
+        return {};
+    }
+    auto captureOffset() const -> Vec2f {
+        switch (m.config.operationMode) {
+        case OperationMode::PresentMirror: return PresentMirrorLens::captureOffset(m);
+        case OperationMode::CaptureArea: return CaptureAreaLens::captureOffset(m);
         }
+        return {};
     }
-
-    void toggleMaximized() { m_isMaximized ^= true; }
-    void setIsMaximized(bool value) { m_isMaximized = value; }
-
-    void resetZoom() { m_zoom = 1; }
-    void zoomBy(float delta) { m_zoom += delta; }
-    void zoomAtScreen(const Point &point, float delta) {
-        auto mx = point.x - outputRect().left();
-        auto my = point.y - outputRect().top();
-        auto offsetPoint = Vec2f{
-            static_cast<float>(mx / m_zoom),
-            static_cast<float>(my / m_zoom),
-        };
-        m_zoom += delta;
-        m_captureOffset.x -= offsetPoint.x - static_cast<float>(mx / m_zoom);
-        m_captureOffset.y -= offsetPoint.y - static_cast<float>(my / m_zoom);
+    auto outputZoom() const -> float {
+        switch (m.config.operationMode) {
+        case OperationMode::PresentMirror: return PresentMirrorLens::outputZoom(m);
+        case OperationMode::CaptureArea: return CaptureAreaLens::outputZoom(m);
+        }
+        return {};
     }
-
-    void setCaptureOffset(const Vec2f &vec2f) { m_captureOffset = vec2f; }
-    void moveCaptureOffsetByScreen(int dx, int dy) {
-        m_captureOffset.x += static_cast<float>(dx) / m_zoom;
-        m_captureOffset.y += static_cast<float>(dy) / m_zoom;
+    auto captureAreaRect() const -> Rect {
+        switch (m.config.operationMode) {
+        case OperationMode::PresentMirror: return PresentMirrorLens::captureAreaRect(m);
+        case OperationMode::CaptureArea: return CaptureAreaLens::captureAreaRect(m);
+        }
+        return {};
     }
 
 private:
-    Rect m_outputRect{};
-    DuplicationStatus m_status{};
-    bool m_isMaximized{};
-    float m_zoom{1};
-    Vec2f m_captureOffset{};
-};
-
-struct VisibleAreaModel {
-    bool isShown() const { return m_shown; }
-    auto rect() const -> const Rect & { return m_rect; }
-
-    void toggleShown() { m_shown ^= true; }
-    void setRect(const Rect &rect) { m_rect = rect; }
-
-private:
-    Rect m_rect{{0, 0}, {100, 100}};
-    bool m_shown{true};
-};
-
-struct Model {
-    constexpr Model() = default;
-
-    auto status() const -> SystemStatus { return m_status; }
-
-    auto capture() -> CaptureModel & { return m_capture; }
-    auto duplication() -> DuplicationModel & { return m_duplication; }
-    auto visibleArea() -> VisibleAreaModel & { return m_visibleArea; }
-
-    auto updateStatus() {
-        m_status = [this] {
-            auto fromDuplicatonStatus = [this] {
-                switch (duplication().status()) {
-                case DuplicationStatus::Live: return SystemStatus::Green;
-                case DuplicationStatus::Blacked:
-                case DuplicationStatus::Paused: return SystemStatus::Yellow;
-                }
-                return SystemStatus::Red; // unknown
-            };
-            switch (capture().status()) {
-            case CaptureStatus::Disabled: return SystemStatus::Neutral;
-            case CaptureStatus::Error: return SystemStatus::Red;
-            case CaptureStatus::Enabling: return SystemStatus::Neutral;
-            case CaptureStatus::Enabled: return fromDuplicatonStatus();
-            }
-            return SystemStatus::Red; // unknown
-        }();
-    }
-
-    void updateVisibleAreaRect() {
-        auto outputRect = duplication().outputRect();
-        auto zoom = duplication().zoom();
-        auto offset = duplication().captureOffset();
-        auto topLeft = capture().virtualRect().topLeft;
-        auto visibleRect = Rect{
-            Point{
-                static_cast<int>(topLeft.x - offset.x - 0.1),
-                static_cast<int>(topLeft.y - offset.y - 0.1),
-            },
-            Dimension{
-                static_cast<int>(1.5 + outputRect.width() / zoom),
-                static_cast<int>(1.5 + outputRect.height() / zoom),
-            },
-        };
-        visibleArea().setRect(visibleRect);
-    }
-
-private:
-    SystemStatus m_status{};
-    CaptureModel m_capture{};
-    DuplicationModel m_duplication{};
-    VisibleAreaModel m_visibleArea{};
+    State const &m;
 };
 
 } // namespace deskdup

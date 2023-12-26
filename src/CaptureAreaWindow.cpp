@@ -7,52 +7,56 @@ using win32::WindowWithMessages;
 
 constexpr static auto colorKey = RGB(0xFF, 0x20, 0xFF);
 
-auto borderRect(const Rect &rect) -> Rect {
+auto borderRect(Rect rect) -> Rect {
     return Rect{
         Point{rect.left() - 2, rect.top() - 2},
         Dimension{rect.width() + 4, rect.height() + 4},
     };
 }
 
-auto createWindow(const Rect &rect, const WindowClass &windowClass, const Window *parent)
-    -> WindowWithMessages {
-
-    auto config = WindowWithMessages::Config{};
-    config.style = win32::WindowStyle::topmostOverlay();
-    // config.style = win32::WindowStyle::overlappedWindow();
-    config.rect = borderRect(rect);
-    config.parent = parent;
-    return windowClass.createWindow(config);
-}
-
-void makeTransparent(Window &window) {
-    const BYTE alpha = 0u;
-    const BYTE flags = LWA_COLORKEY;
-    ::SetLayeredWindowAttributes(window.handle(), colorKey, alpha, flags);
+auto createWindow(const WindowClass &windowClass, Rect rect) -> WindowWithMessages {
+    return windowClass.createWindow({
+        .style = win32::WindowStyle::popup().topMost().transparent(),
+        .name = win32::Name{},
+        .rect = borderRect(rect),
+    });
 }
 
 } // namespace
 
-CaptureAreaWindow::CaptureAreaWindow(
-    VisibleAreaModel &model, const win32::WindowClass &windowClass, const win32::Window *parent)
-    : m_model(model)
-    , m_window(createWindow(m_model.rect(), windowClass, parent))
-    , m_shownAreaRect(m_model.rect()) {
+CaptureAreaWindow::CaptureAreaWindow(const Args &args)
+    : m_window{createWindow(args.windowClass, args.rect)}
+    , m_dimension{args.rect.dimension} {
     m_window.setMessageHandler(this);
-    makeTransparent(m_window);
-    m_window.show();
-    m_window.update();
+    m_window.styleLayeredColorKey(colorKey);
 }
 
-void CaptureAreaWindow::update() {
-    if (m_model.rect() != m_shownAreaRect) {
-        m_shownAreaRect = m_model.rect();
-        m_window.move(borderRect(m_shownAreaRect));
+void CaptureAreaWindow::updateIsShown(bool isShown) {
+    if (isShown) {
+        m_window.show();
+        m_window.update();
+    }
+    else {
+        m_window.hide();
     }
 }
 
+void CaptureAreaWindow::updateDuplicationStatus(DuplicationStatus status) {
+    m_duplicationStatus = status;
+    auto rect = m_window.rect();
+    rect.dimension.width += 1;
+    m_window.move(rect);
+    rect.dimension.width -= 1;
+    m_window.move(rect);
+}
+
+void CaptureAreaWindow::updateRect(Rect rect) {
+    m_dimension = rect.dimension;
+    m_window.move(borderRect(rect));
+}
+
 bool CaptureAreaWindow::paint() {
-    const auto dim = m_shownAreaRect.dimension;
+    const auto dim = m_dimension;
 
     auto p = PAINTSTRUCT{};
     auto dc = BeginPaint(m_window.handle(), &p);
@@ -60,7 +64,7 @@ bool CaptureAreaWindow::paint() {
     SelectObject(dc, GetStockObject(HOLLOW_BRUSH));
     SelectObject(dc, GetStockObject(DC_PEN));
 
-    SetDCPenColor(dc, RGB(255, 80, 40));
+    SetDCPenColor(dc, m_duplicationStatus == DuplicationStatus::Live ? RGB(255, 80, 40) : RGB(255, 220, 120));
     Rectangle(dc, 0, 0, dim.width + 4, dim.height + 4);
 
     SelectObject(dc, GetStockObject(DC_BRUSH));

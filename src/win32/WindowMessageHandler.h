@@ -33,6 +33,27 @@ struct AppCommand {
     WORD keys; // MK_CONTROL | MK_LBUTTON | MK_MBUTTON | MK_RBUTTON | MK_SHIFT | MK_XBUTTON1 |
                // MK_XBUTTON2
 };
+struct WindowPosition {
+    HWND hwnd;
+    HWND insertAfter;
+    Point topLeft;
+    Dimension dimension;
+    UINT flags;
+
+    constexpr bool hasZOrder() const { return 0 == (flags & SWP_NOZORDER); }
+    constexpr bool hasTopLeft() const { return 0 == (flags & SWP_NOREPOSITION); }
+    constexpr bool hasDimension() const { return 0 == (flags & SWP_NOSIZE); }
+
+    constexpr static auto fromWINDOWPOS(WINDOWPOS const &winPos) -> WindowPosition {
+        return {
+            .hwnd = winPos.hwnd,
+            .insertAfter = winPos.hwndInsertAfter,
+            .topLeft = Point{winPos.x, winPos.y},
+            .dimension = Dimension{winPos.cx, winPos.cy},
+            .flags = winPos.flags,
+        };
+    }
+};
 
 /// CRTP Wrapper to easily handle messages
 /// usage:
@@ -46,13 +67,16 @@ struct AppCommand {
 /// * we use virtual to allow using the override keyword
 /// * all message methods are called directly without virtual dispatch!
 template<class Actual>
-struct MessageHandler {
+struct WindowMessageHandler {
 #pragma warning(push)
 #pragma warning(disable : 4100) // unereference parameter - its here for documentation only!
     virtual void create(CREATESTRUCT *) {}
     virtual void destroy() {}
     virtual void size(const Dimension &, uint32_t) {}
     virtual void move(const Point &topLeft) {}
+    virtual bool position(const WindowPosition &) {
+        return false; // note: move & size is not called if true is returned!
+    }
     // virtual void activate() {}
     virtual void setFocus() {}
     virtual void killFocus() {}
@@ -72,11 +96,11 @@ struct MessageHandler {
     // virtual void showWindow() {}
     // virtual void windowsIniChange() {}
     // …
-    virtual void displayChange(uint32_t bitsPerPixel, const Dimension &) {}
+    virtual void displayChange(uint32_t bitsPerPixel, Dimension) {}
 
     // Input handling
-    virtual void inputKeyDown(uint32_t keyCode) {}
-    virtual void inputKeyUp(uint32_t keyCode) {}
+    virtual bool inputKeyDown(uint32_t keyCode) { return false; }
+    virtual bool inputKeyUp(uint32_t keyCode) { return false; }
     virtual void inputChar() {}
     // virtual void inputDeadChar() {}
     virtual void inputUnicodeChar() {}
@@ -88,7 +112,7 @@ struct MessageHandler {
     virtual void mouseLeftButtonUp(const Point &mousePosition, DWORD keyState) {}
     virtual void mouseLeftButtonDoubleClick(const Point &mousePosition, DWORD keyState) {}
     virtual void mouseRightButtonDown(const Point &mousePosition, DWORD keyState) {}
-    virtual void mouseRightButtonUp(const Point &mousePosition, DWORD keyState) {}
+    virtual bool mouseRightButtonUp(const Point &mousePosition, DWORD keyState) { return false; }
     virtual void mouseRightDoubleClick(const Point &mousePosition, DWORD keyState) {}
     virtual void mouseMiddleButtonDown(const Point &mousePosition, DWORD keyState) {}
     virtual void mouseMiddleButtonUp(const Point &mousePosition, DWORD keyState) {}
@@ -97,15 +121,14 @@ struct MessageHandler {
     virtual void mouseExtraButtonDown() {}
     virtual void mouseExtraButtonUp() {}
     virtual void mouseExtraButtonDoubleClick() {}
+    virtual void contextMenu(const Point &position) {}
     // …
 
     virtual void dpiChanged(const Rect &) {}
 
     virtual auto deviceChange(WPARAM event, LPARAM pointer) -> LRESULT { return {}; }
 
-    virtual auto sysCommand(uint16_t command, const Point &mousePosition) -> OptLRESULT {
-        return {};
-    }
+    virtual auto sysCommand(uint16_t command, const Point &mousePosition) -> OptLRESULT { return {}; }
     virtual auto appCommand(uint32_t command, const AppCommand &) -> OptLRESULT { return {}; }
     virtual auto menuCommand(uint16_t command) -> OptLRESULT { return {}; }
     virtual auto acceleratorCommand(uint16_t command) -> OptLRESULT { return {}; }
@@ -148,95 +171,83 @@ private:
     friend struct WindowWithMessages;
 
     static auto handleMessage(void *actual, const WindowMessage &msg) -> OptLRESULT {
+        static constexpr auto fromBool = [](bool b) -> OptLRESULT { return b ? OptLRESULT{LRESULT{}} : OptLRESULT{}; };
         auto m = reinterpret_cast<Actual *>(actual);
         auto &[window, message, wParam, lParam] = msg;
         switch (message) {
-        case WM_CREATE:
-            return m->Actual::create(reinterpret_cast<CREATESTRUCT *>(lParam)), LRESULT{};
-        case WM_DESTROY: return m->Actual::destroy(), LRESULT{};
+        case WM_CREATE: return m->create(std::bit_cast<CREATESTRUCT *>(lParam)), LRESULT{};
+        case WM_DESTROY: return m->destroy(), LRESULT{};
         case WM_SIZE:
-            return m->Actual::size(
-                       Dimension{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)},
-                       static_cast<uint32_t>(wParam)),
+            return m->size(Dimension{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)}, static_cast<uint32_t>(wParam)),
                    LRESULT{};
-        case WM_MOVE:
-            return m->Actual::move(Point{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)}), LRESULT{};
-        case WM_SETFOCUS: return m->Actual::setFocus(), LRESULT{};
-        case WM_KILLFOCUS: return m->Actual::killFocus(), LRESULT{};
+        case WM_MOVE: return m->move(Point{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)}), LRESULT{};
+        case WM_WINDOWPOSCHANGED:
+            return fromBool(m->position(WindowPosition::fromWINDOWPOS(*std::bit_cast<WINDOWPOS *>(lParam))));
+        case WM_SETFOCUS: return m->setFocus(), LRESULT{};
+        case WM_KILLFOCUS: return m->killFocus(), LRESULT{};
 
-        case WM_PAINT: return m->Actual::paint() ? OptLRESULT{LRESULT{}} : OptLRESULT{};
-        case WM_CLOSE: return m->Actual::close(), LRESULT{};
+        case WM_PAINT: return fromBool(m->paint());
+        case WM_CLOSE: return m->close(), LRESULT{};
 
-        case WM_KEYDOWN: return m->Actual::inputKeyDown(static_cast<uint32_t>(wParam)), LRESULT{};
-        case WM_KEYUP: return m->Actual::inputKeyUp(static_cast<uint32_t>(wParam)), LRESULT{};
+        case WM_KEYDOWN: return fromBool(m->inputKeyDown(static_cast<uint32_t>(wParam)));
+        case WM_KEYUP: return fromBool(m->inputKeyUp(static_cast<uint32_t>(wParam)));
 
         case WM_MOUSEMOVE:
-            return m->Actual::mouseMove(
-                       Point{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)},
-                       GET_KEYSTATE_WPARAM(wParam)),
+            return m->mouseMove(Point{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)}, GET_KEYSTATE_WPARAM(wParam)),
                    LRESULT{};
         case WM_LBUTTONDOWN:
-            return m->Actual::mouseLeftButtonDown(
-                       Point{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)},
-                       GET_KEYSTATE_WPARAM(wParam)),
+            return m->mouseLeftButtonDown(
+                       Point{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)}, GET_KEYSTATE_WPARAM(wParam)),
                    LRESULT{};
         case WM_LBUTTONUP:
-            return m->Actual::mouseLeftButtonUp(
-                       Point{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)},
-                       GET_KEYSTATE_WPARAM(wParam)),
+            return m->mouseLeftButtonUp(Point{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)}, GET_KEYSTATE_WPARAM(wParam)),
                    LRESULT{};
         case WM_LBUTTONDBLCLK:
-            return m->Actual::mouseLeftButtonDoubleClick(
-                       Point{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)},
-                       GET_KEYSTATE_WPARAM(wParam)),
+            return m->mouseLeftButtonDoubleClick(
+                       Point{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)}, GET_KEYSTATE_WPARAM(wParam)),
                    LRESULT{};
         case WM_RBUTTONDOWN:
-            return m->Actual::mouseRightButtonDown(
-                       Point{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)},
-                       GET_KEYSTATE_WPARAM(wParam)),
+            return m->mouseRightButtonDown(
+                       Point{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)}, GET_KEYSTATE_WPARAM(wParam)),
                    LRESULT{};
         case WM_RBUTTONUP:
-            return m->Actual::mouseRightButtonUp(
-                       Point{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)},
-                       GET_KEYSTATE_WPARAM(wParam)),
-                   LRESULT{};
+            return fromBool(
+                m->mouseRightButtonUp(Point{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)}, GET_KEYSTATE_WPARAM(wParam)));
         case WM_RBUTTONDBLCLK:
-            return m->Actual::mouseRightDoubleClick(
-                       Point{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)},
-                       GET_KEYSTATE_WPARAM(wParam)),
+            return m->mouseRightDoubleClick(
+                       Point{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)}, GET_KEYSTATE_WPARAM(wParam)),
                    LRESULT{};
         case WM_MOUSEWHEEL:
-            return m->Actual::mouseWheel(
+            return m->mouseWheel(
                        GET_WHEEL_DELTA_WPARAM(wParam),
                        Point{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)},
                        GET_KEYSTATE_WPARAM(wParam)),
                    LRESULT{};
+        case WM_CONTEXTMENU: return m->contextMenu(Point{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)}), LRESULT{};
 
         case WM_DISPLAYCHANGE:
-            return m->Actual::displayChange(
-                       static_cast<uint32_t>(wParam),
-                       Dimension{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)}),
+            return m->displayChange(
+                       static_cast<uint32_t>(wParam), Dimension{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)}),
                    LRESULT{};
 
         case WM_COMMAND: return handleCommand(actual, msg);
         case WM_APPCOMMAND:
-            return m->Actual::appCommand(
-                GET_APPCOMMAND_LPARAM(lParam),
-                {GET_DEVICE_LPARAM(lParam), GET_KEYSTATE_LPARAM(lParam)});
-        case WM_SYSCOMMAND:
-            return m->Actual::sysCommand(
-                wParam & 0xFFF0, Point{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)});
+            return m->appCommand(
+                GET_APPCOMMAND_LPARAM(lParam), {GET_DEVICE_LPARAM(lParam), GET_KEYSTATE_LPARAM(lParam)});
+        case WM_SYSCOMMAND: return m->sysCommand(wParam & 0xFFF0, Point{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)});
 
-        case WM_TIMER:
-            return m->Actual::timer(window, wParam, reinterpret_cast<TIMERPROC>(lParam)), LRESULT{};
+        case WM_TIMER: return m->timer(window, wParam, reinterpret_cast<TIMERPROC>(lParam)), LRESULT{};
 
-        case WM_DPICHANGED:
-            return m->Actual::dpiChanged(Rect::fromRECT(*reinterpret_cast<LPRECT>(lParam))),
-                   LRESULT{};
+        case WM_DPICHANGED: return m->dpiChanged(Rect::fromRECT(*reinterpret_cast<LPRECT>(lParam))), LRESULT{};
 
-        case WM_DEVICECHANGE: return m->Actual::deviceChange(wParam, lParam);
+        case WM_DEVICECHANGE: return m->deviceChange(wParam, lParam);
 
         case WM_POWERBROADCAST: return handlePowerBroadcast(actual, msg);
+
+        case WM_NCHITTEST: {
+            auto result = ::DefWindowProc(window, message, wParam, lParam);
+            return result;
+        }
 
         default:
             if (message >= WM_USER) return m->Actual::userMessage(msg);
@@ -247,23 +258,21 @@ private:
         auto m = reinterpret_cast<Actual *>(actual);
         auto &[window, message, wParam, lParam] = msg;
         switch (HIWORD(wParam)) {
-        case 0: return m->Actual::menuCommand(LOWORD(wParam));
-        case 1: return m->Actual::acceleratorCommand(LOWORD(wParam));
-        default: return m->Actual::controlCommand({HIWORD(wParam), LOWORD(wParam), lParam});
+        case 0: return m->menuCommand(LOWORD(wParam));
+        case 1: return m->acceleratorCommand(LOWORD(wParam));
+        default: return m->controlCommand({HIWORD(wParam), LOWORD(wParam), lParam});
         }
     }
     static auto handlePowerBroadcast(void *actual, const WindowMessage &msg) -> OptLRESULT {
         auto m = reinterpret_cast<Actual *>(actual);
         auto &[window, message, wParam, lParam] = msg;
         switch (wParam) {
-        case PBT_APMPOWERSTATUSCHANGE: return m->Actual::powerStatusChange(), LRESULT{};
-        case PBT_APMRESUMEAUTOMATIC: return m->Actual::powerResumeAutomatic(), LRESULT{};
-        case PBT_APMRESUMESUSPEND: return m->Actual::powerResumeSuspend(), LRESULT{};
-        case PBT_APMSUSPEND: return m->Actual::powerSuspend(), LRESULT{};
+        case PBT_APMPOWERSTATUSCHANGE: return m->powerStatusChange(), LRESULT{};
+        case PBT_APMRESUMEAUTOMATIC: return m->powerResumeAutomatic(), LRESULT{};
+        case PBT_APMRESUMESUSPEND: return m->powerResumeSuspend(), LRESULT{};
+        case PBT_APMSUSPEND: return m->powerSuspend(), LRESULT{};
         case PBT_POWERSETTINGCHANGE:
-            return m->Actual::powerSettingChange(
-                       reinterpret_cast<POWERBROADCAST_SETTING *>(lParam)),
-                   LRESULT{};
+            return m->powerSettingChange(reinterpret_cast<POWERBROADCAST_SETTING *>(lParam)), LRESULT{};
         }
         return {};
     }

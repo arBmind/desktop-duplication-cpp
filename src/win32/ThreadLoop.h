@@ -23,8 +23,8 @@ struct ThreadLoop {
                 cb};
         }
         template<auto M>
-        requires(MemberMedthodSig<Keep(HANDLE), decltype(M)>) //
-            constexpr static auto makeMember(MemberMethodClass<M> *obj) -> Callback {
+            requires(MemberMedthodSig<Keep(HANDLE), decltype(M)>)
+        constexpr static auto makeMember(MemberMethodClass<M> *obj) -> Callback {
             Func *func = [](void *ptr, HANDLE handle) -> Keep {
                 auto p = reinterpret_cast<MemberMethodClass<M> *>(ptr);
                 return (p->*M)(handle);
@@ -69,6 +69,7 @@ struct ThreadLoop {
 
     void enableAllInputs() { m_queueStatus |= QS_ALLINPUT; }
     void enableAwaitAlerts() { m_awaitAlerts = true; }
+    void quit() { m_quit = true; }
 
     int run() {
         while (keepRunning()) {

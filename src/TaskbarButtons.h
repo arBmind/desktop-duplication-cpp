@@ -1,4 +1,5 @@
 #pragma once
+#include "MainController.h"
 #include "Model.h"
 
 #include "win32/TaskbarList.h"
@@ -10,29 +11,27 @@ using win32::Window;
 
 /// manages the buttons in the Taskbar, when hovering
 struct TaskbarButtons {
-    TaskbarButtons(Model &);
+    TaskbarButtons();
 
     auto userMessage() const -> uint32_t { return m_taskbarCreatedMessage; }
 
-    void createButtons(Window &);
+    void createButtons(Window &, const State &state);
 
-    bool handleCommand(int command);
+    bool handleCommand(int command, MainController &);
 
-    void update();
+    void updateMaximized(bool isMaximized);
+    void updateSystemStatus(SystemStatus);
+    void updateDuplicationStatus(DuplicationStatus, PauseRendering);
+    void updateVisibleArea(bool isShown);
 
 private:
-    void toggleMaximized();
-    void toggleFreezed();
-    void toggleVisibleArea();
-
-    void visualizeMaximized();
-    void visualizeSystemStatus();
-    void visualizeDuplicationStatus();
-    void visualizeVisibleArea();
+    void visualizeMaximized(bool isMaximized);
+    void visualizeSystemStatus(SystemStatus);
+    void visualizeDuplicationStatus(DuplicationStatus, PauseRendering);
+    void visualizeVisibleArea(bool isShown);
     void finalizeButtons();
 
 private:
-    Model &m_model;
     uint32_t m_taskbarCreatedMessage{};
     bool m_hasButtons{};
     win32::TaskbarList m_taskbarList{};

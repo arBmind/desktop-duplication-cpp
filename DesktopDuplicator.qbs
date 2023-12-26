@@ -9,7 +9,7 @@ Project {
         consoleApplication: false
 
         Depends { name: 'cpp' }
-        cpp.cxxLanguageVersion: "c++2a"
+        cpp.cxxLanguageVersion: "c++23"
         cpp.treatWarningsAsErrors: true
         cpp.enableRtti: false // disable runtime type information for faster build and smaller object files and executable
 
@@ -32,91 +32,115 @@ Project {
             )
         }
 
-        // Depends { name: 'Microsoft.GSL' }
-
         Depends { name: 'hlsl' }
         hlsl.shaderModel: '4_0_level_9_3'
 
         Group {
-            name: 'Pixelshaders'
-            hlsl.shaderType: 'ps'
-            files: ["src/MaskedPixelShader.hlsl", "src/PlainPixelShader.hlsl"]
-        }
-        Group {
-            name: 'Vertexshaders'
-            hlsl.shaderType: 'vs'
-            files: ["src/VertexShader.hlsl"]
-        }
-        Group {
-            name: 'Capture'
+            name: 'Meta'
+            prefix: 'src/meta/'
             files: [
-                "src/CaptureThread.cpp",
-                "src/CaptureThread.h",
-                "src/CapturedUpdate.h",
-                "src/FrameContext.h",
+                "array_view.h",
+                "callback_adapter.h",
+                "comptr.h",
+                "flags.h",
+                "member_method.h",
+                "scope_guard.h",
             ]
         }
         Group {
-            name: 'Output'
+            name: 'Win32'
+            prefix: 'src/win32/'
             files: [
-                "src/BaseRenderer.cpp",
-                "src/BaseRenderer.h",
-                "src/FrameUpdater.cpp",
-                "src/FrameUpdater.h",
-                "src/PointerUpdater.cpp",
-                "src/PointerUpdater.h",
-                "src/WindowRenderer.cpp",
-                "src/WindowRenderer.h",
-                "src/renderer.cpp",
-                "src/renderer.h",            ]
+                "DisplayMonitor.cpp",
+                "DisplayMonitor.h",
+                "Dpi.h",
+                "Geometry.h",
+                "Geometry.ostream.h",
+                "Handle.h",
+                "PowerRequest.cpp",
+                "PowerRequest.h",
+                "Process.cpp",
+                "Process.h",
+                "TaskbarList.cpp",
+                "TaskbarList.h",
+                "Thread.cpp",
+                "Thread.h",
+                "ThreadLoop.cpp",
+                "ThreadLoop.h",
+                "WaitableTimer.cpp",
+                "WaitableTimer.h",
+                "Window.cpp",
+                "Window.h",
+                "Window.ostream.h",
+                "WindowMessageHandler.h",
+            ]
         }
+        Group {
+            name: 'Main'
+            prefix: "src/"
 
-        files: [
-            "src/CaptureAreaWindow.cpp",
-            "src/CaptureAreaWindow.h",
-            "src/DuplicationController.cpp",
-            "src/DuplicationController.h",
-            "src/MainApplication.cpp",
-            "src/MainApplication.h",
-            "src/Model.cpp",
-            "src/Model.h",
-            "src/OutputWindow.cpp",
-            "src/OutputWindow.h",
-            "src/TaskbarButtons.cpp",
-            "src/TaskbarButtons.h",
-            "src/main.cpp",
-            "src/main.ico",
-            "src/main.manifest",
-            "src/main.rc",
-            "src/meta/array_view.h",
-            "src/meta/callback_adapter.h",
-            "src/meta/comptr.h",
-            "src/meta/flags.h",
-            "src/meta/member_method.h",
-            "src/meta/scope_guard.h",
-            "src/win32/DisplayMonitor.cpp",
-            "src/win32/DisplayMonitor.h",
-            "src/win32/Dpi.h",
-            "src/win32/Geometry.h",
-            "src/win32/Geometry.ostream.h",
-            "src/win32/Handle.h",
-            "src/win32/MessageHandler.h",
-            "src/win32/PowerRequest.cpp",
-            "src/win32/PowerRequest.h",
-            "src/win32/Process.cpp",
-            "src/win32/Process.h",
-            "src/win32/TaskbarList.cpp",
-            "src/win32/TaskbarList.h",
-            "src/win32/Thread.cpp",
-            "src/win32/Thread.h",
-            "src/win32/ThreadLoop.cpp",
-            "src/win32/ThreadLoop.h",
-            "src/win32/WaitableTimer.cpp",
-            "src/win32/WaitableTimer.h",
-            "src/win32/Window.cpp",
-            "src/win32/Window.h",
-            "src/win32/Window.ostream.h",
-        ]
+            Group {
+                name: 'Pixelshaders'
+                hlsl.shaderType: 'ps'
+                files: ["MaskedPixelShader.hlsl", "PlainPixelShader.hlsl"]
+            }
+            Group {
+                name: 'Vertexshaders'
+                hlsl.shaderType: 'vs'
+                files: ["VertexShader.hlsl"]
+            }
+            Group {
+                name: 'Capture'
+                files: [
+                    "CaptureThread.cpp",
+                    "CaptureThread.h",
+                    "CapturedUpdate.h",
+                    "FrameContext.h",
+                ]
+            }
+            Group {
+                name: 'Output'
+                files: [
+                    "BaseRenderer.cpp",
+                    "BaseRenderer.h",
+                    "FrameUpdater.cpp",
+                    "FrameUpdater.h",
+                    "PointerUpdater.cpp",
+                    "PointerUpdater.h",
+                    "WindowRenderer.cpp",
+                    "WindowRenderer.h",
+                    "renderer.cpp",
+                    "renderer.h",            ]
+            }
+            Group {
+                name: 'Application'
+                files: [
+                    "CaptureAreaWindow.cpp",
+                    "CaptureAreaWindow.h",
+                    "DuplicationController.cpp",
+                    "DuplicationController.h",
+                    "MainApplication.cpp",
+                    "MainApplication.h",
+                    "MainController.h",
+                    "MainThread.cpp",
+                    "MainThread.h",
+                    "Model.cpp",
+                    "Model.h",
+                    "OutputWindow.cpp",
+                    "OutputWindow.h",
+                    "RenderThread.cpp",
+                    "RenderThread.h",
+                    "TaskbarButtons.cpp",
+                    "TaskbarButtons.h",
+                ]
+            }
+            files: [
+                "main.cpp",
+                "main.ico",
+                "main.manifest",
+                "main.rc",
+            ]
+        }
 
         Group {
             name: "install"
@@ -124,18 +148,6 @@ Project {
             qbs.install: true
         }
     }
-
-    // Project {
-    //     name: "Third Party"
-
-    //     Product {
-    //         name: "Microsoft.GSL"
-    //         Export {
-    //              Depends { name: 'cpp' }
-    //              cpp.includePaths: 'packages/Microsoft.Gsl.0.1.2.1/build/native/include'
-    //         }
-    //     }
-    // }
 
     Product {
         name: "Extra Files"

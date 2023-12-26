@@ -11,13 +11,12 @@
 using Error = renderer::Error;
 using win32::Rect;
 
+WindowRenderer::WindowRenderer(const Args &config)
+    : m_args{config} {}
+
 void WindowRenderer::init(InitArgs &&args) {
     m_dx.emplace(std::move(args));
-    m_windowHandle = args.windowHandle;
-
-    RECT rect;
-    ::GetClientRect(m_windowHandle, &rect);
-    m_size = Rect::fromRECT(rect).dimension;
+    m_size = args.windowDimension;
 }
 
 void WindowRenderer::reset() noexcept { m_dx.reset(); }
@@ -33,10 +32,7 @@ bool WindowRenderer::resize(Dimension size) noexcept {
     return true;
 }
 
-void WindowRenderer::setZoom(float zoom) noexcept {
-    if (m_zoom == zoom) return;
-    m_zoom = zoom;
-}
+void WindowRenderer::zoomOutput(float zoom) noexcept { m_args.outputZoom = zoom; }
 
 // void WindowRenderer::moveToBorder(int x, int y) {
 //     auto next = m_offset;
@@ -55,15 +51,24 @@ void WindowRenderer::setZoom(float zoom) noexcept {
 //     else if (0 < y)
 //         next.y = -static_cast<float>(texture_description.Height) + (m_size.height / m_zoom);
 
-//     setOffset(next);
+//     updateOffset(next);
 // }
 
-void WindowRenderer::setOffset(Vec2f offset) noexcept {
-    if (offset.x == m_offset.x && offset.y == m_offset.y) return;
-    m_offset = offset;
-}
+void WindowRenderer::updateOffset(Vec2f offset) noexcept { m_args.captureOffset = offset; }
 
 void WindowRenderer::render() {
+    try {
+        renderBlack();
+        renderFrame();
+        renderPointer();
+        swap();
+    }
+    catch (...) {
+        m_args.setErrorCallback(m_args.callbackPtr, std::current_exception());
+    }
+}
+
+void WindowRenderer::renderBlack() {
     auto &dx = *m_dx;
     if (m_pendingResizeBuffers) {
         m_pendingResizeBuffers = false;
@@ -74,7 +79,10 @@ void WindowRenderer::render() {
 
     auto black = BaseRenderer::Color{0, 0, 0, 0};
     dx.clearRenderTarget(black);
+}
 
+void WindowRenderer::renderFrame() {
+    auto &dx = *m_dx;
     // dx.deviceContext()->GenerateMips(dx.backgroundTextureShaderResource.Get());
 
     setViewPort();
@@ -91,7 +99,8 @@ void WindowRenderer::render() {
     dx.deviceContext()->Draw(6, 0);
 }
 
-void WindowRenderer::renderPointer(const PointerBuffer &pointer) {
+void WindowRenderer::renderPointer() {
+    auto &pointer = m_args.pointerBuffer;
     if (pointer.position_timestamp == 0) return;
     updatePointerShape(pointer);
     if (!pointer.visible) return;
@@ -129,11 +138,7 @@ void WindowRenderer::resizeSwapBuffer() {
     DXGI_SWAP_CHAIN_DESC description;
     dx.swapChain->GetDesc(&description);
     const auto result = dx.swapChain->ResizeBuffers(
-        description.BufferCount,
-        m_size.width,
-        m_size.height,
-        description.BufferDesc.Format,
-        description.Flags);
+        description.BufferCount, m_size.width, m_size.height, description.BufferDesc.Format, description.Flags);
     if (IS_ERROR(result)) throw Error{result, "Failed to resize swap buffers"};
 }
 
@@ -142,13 +147,15 @@ void WindowRenderer::setViewPort() {
     D3D11_TEXTURE2D_DESC texture_description;
     dx.backgroundTexture->GetDesc(&texture_description);
 
+    auto zoom = m_args.outputZoom;
+    auto offset = m_args.captureOffset;
     D3D11_VIEWPORT view_port;
-    view_port.Width = static_cast<float>(texture_description.Width) * m_zoom;
-    view_port.Height = static_cast<float>(texture_description.Height) * m_zoom;
+    view_port.Width = static_cast<float>(texture_description.Width) * zoom;
+    view_port.Height = static_cast<float>(texture_description.Height) * zoom;
     view_port.MinDepth = 0.0f;
     view_port.MaxDepth = 1.0f;
-    view_port.TopLeftX = static_cast<float>(m_offset.x) * m_zoom;
-    view_port.TopLeftY = static_cast<float>(m_offset.y) * m_zoom;
+    view_port.TopLeftX = static_cast<float>(offset.x) * zoom;
+    view_port.TopLeftY = static_cast<float>(offset.y) * zoom;
 
     dx.deviceContext()->RSSetViewports(1, &view_port);
 }
@@ -190,10 +197,9 @@ void WindowRenderer::updatePointerShape(const PointerBuffer &pointer) {
                 const auto addr = (col >> 3) + (row * pitch);
                 const auto and_mask = pointer.shape_data[addr] & mask;
                 const auto xor_mask = pointer.shape_data[addr + xor_offset] & mask;
-                const auto pixel = and_mask ? (xor_mask ? Color{{0xFF, 0xFF, 0xFF, 0xFF}}
-                                                        : Color{{0x00, 0x00, 0x00, 0xFF}})
-                                            : (xor_mask ? Color{{0xFF, 0xFF, 0xFF, 0x00}}
-                                                        : Color{{0x00, 0x00, 0x00, 0x00}});
+                const auto pixel = and_mask
+                                       ? (xor_mask ? Color{{0xFF, 0xFF, 0xFF, 0xFF}} : Color{{0x00, 0x00, 0x00, 0xFF}})
+                                       : (xor_mask ? Color{{0xFF, 0xFF, 0xFF, 0x00}} : Color{{0x00, 0x00, 0x00, 0x00}});
                 tmpData[row * width + col] = pixel;
             }
         }
@@ -227,8 +233,7 @@ void WindowRenderer::updatePointerShape(const PointerBuffer &pointer) {
     //}
 
     auto &dx = *m_dx;
-    auto result =
-        dx.device()->CreateTexture2D(&texture_description, &resource_data, &dx.pointerTexture);
+    auto result = dx.device()->CreateTexture2D(&texture_description, &resource_data, &dx.pointerTexture);
 
     D3D11_SHADER_RESOURCE_VIEW_DESC shader_resource_description;
     shader_resource_description.Format = texture_description.Format;
@@ -258,8 +263,8 @@ void WindowRenderer::updatePointerVertices(const PointerBuffer &pointer) {
     D3D11_TEXTURE2D_DESC texture_description;
     dx.backgroundTexture->GetDesc(&texture_description);
 
-    const auto texture_size = SIZE{
-        static_cast<int>(texture_description.Width), static_cast<int>(texture_description.Height)};
+    const auto texture_size =
+        SIZE{static_cast<int>(texture_description.Width), static_cast<int>(texture_description.Height)};
     const auto center = POINT{texture_size.cx / 2, texture_size.cy / 2};
 
     const auto position = pointer.position;
@@ -280,12 +285,11 @@ void WindowRenderer::updatePointerVertices(const PointerBuffer &pointer) {
     mouse_to_desktop(vertices[4], 0, 0);
     mouse_to_desktop(vertices[5], size.cx, 0);
 
-    dx.deviceContext()->UpdateSubresource(
-        dx.pointerVertexBuffer.Get(), 0, nullptr, &vertices[0], 0, 0);
+    dx.deviceContext()->UpdateSubresource(dx.pointerVertexBuffer.Get(), 0, nullptr, &vertices[0], 0, 0);
 }
 
 WindowRenderer::Resources::Resources(WindowRenderer::InitArgs &&args)
-    : BaseRenderer(std::move(args))
+    : BaseRenderer(std::move(args.basic))
     , backgroundTexture(std::move(args.texture)) {
 
     createBackgroundTextureShaderResource();
@@ -298,8 +302,8 @@ WindowRenderer::Resources::Resources(WindowRenderer::InitArgs &&args)
 }
 
 void WindowRenderer::Resources::createBackgroundTextureShaderResource() {
-    const auto result = device()->CreateShaderResourceView(
-        backgroundTexture.Get(), nullptr, &backgroundTextureShaderResource);
+    const auto result =
+        device()->CreateShaderResourceView(backgroundTexture.Get(), nullptr, &backgroundTextureShaderResource);
     if (IS_ERROR(result)) throw Error{result, "Failed to create background shader resource"};
 }
 
@@ -323,8 +327,7 @@ void WindowRenderer::Resources::createBackgroundVertexBuffer() {
     RtlZeroMemory(&init_data, sizeof(init_data));
     init_data.pSysMem = &vertices[0];
 
-    const auto result =
-        device()->CreateBuffer(&buffer_description, &init_data, &backgroundVertexBuffer);
+    const auto result = device()->CreateBuffer(&buffer_description, &init_data, &backgroundVertexBuffer);
     if (IS_ERROR(result)) throw Error{result, "Failed to create vertex buffer"};
 }
 
@@ -340,8 +343,7 @@ void WindowRenderer::Resources::createRenderTarget() {
     if (IS_ERROR(result)) throw Error{result, "Failed to get backbuffer"};
 
     const D3D11_RENDER_TARGET_VIEW_DESC *render_target_description = nullptr;
-    result = device()->CreateRenderTargetView(
-        back_buffer.Get(), render_target_description, &renderTarget);
+    result = device()->CreateRenderTargetView(back_buffer.Get(), render_target_description, &renderTarget);
     if (IS_ERROR(result)) throw Error{result, "Failed to create render target for backbuffer"};
 }
 
@@ -353,9 +355,7 @@ void WindowRenderer::Resources::createMaskedPixelShader() {
     if (IS_ERROR(result)) throw Error{result, "Failed to create pixel shader"};
 }
 
-void WindowRenderer::Resources::createLinearSamplerState() {
-    linearSamplerState = createLinearSampler();
-}
+void WindowRenderer::Resources::createLinearSamplerState() { linearSamplerState = createLinearSampler(); }
 
 void WindowRenderer::Resources::createPointerVertexBuffer() {
     D3D11_BUFFER_DESC buffer_description;

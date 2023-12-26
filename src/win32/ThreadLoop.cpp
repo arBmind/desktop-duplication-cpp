@@ -6,8 +6,7 @@ void ThreadLoop::sleep() {
     auto handleCount = static_cast<DWORD>(m_waitHandles.size());
     auto handleData = m_waitHandles.data();
     auto wakeMask = m_queueStatus;
-    auto flags =
-        (m_awaitAlerts ? MWMO_ALERTABLE : 0u) | (m_queueStatus != 0 ? MWMO_INPUTAVAILABLE : 0u);
+    auto flags = (m_awaitAlerts ? MWMO_ALERTABLE : 0u) | (m_queueStatus != 0 ? MWMO_INPUTAVAILABLE : 0u);
 
     auto timeout = static_cast<uint32_t>(m_timeout.count());
     auto awoken = ::MsgWaitForMultipleObjectsEx(handleCount, handleData, timeout, wakeMask, flags);

@@ -5,27 +5,33 @@
 
 namespace deskdup {
 
-using win32::MessageHandler;
+using win32::WindowMessageHandler;
 using win32::Rect;
 using win32::Window;
 using win32::WindowClass;
 
 /// top-most transparent window that marks the captured area of the screen
-struct CaptureAreaWindow final : private MessageHandler<CaptureAreaWindow> {
-    explicit CaptureAreaWindow(VisibleAreaModel &, const WindowClass &, const Window *parent);
+struct CaptureAreaWindow final : private WindowMessageHandler<CaptureAreaWindow> {
+    struct Args {
+        WindowClass const &windowClass;
+        Rect rect{};
+    };
+    explicit CaptureAreaWindow(Args const &);
 
     auto window() -> Window & { return m_window; }
 
-    void update();
+    void updateIsShown(bool isShown);
+    void updateDuplicationStatus(DuplicationStatus);
+    void updateRect(Rect);
 
 private:
-    friend struct MessageHandler<CaptureAreaWindow>;
+    friend struct WindowMessageHandler<CaptureAreaWindow>;
     bool paint() override;
 
 private:
-    VisibleAreaModel &m_model;
     win32::WindowWithMessages m_window;
-    Rect m_shownAreaRect;
+    Dimension m_dimension;
+    DuplicationStatus m_duplicationStatus;
 };
 
 } // namespace deskdup

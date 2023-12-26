@@ -11,9 +11,6 @@ WinMain(_In_ HINSTANCE instanceHandle, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int 
     const auto hr = CoInitialize(nullptr);
     if (!SUCCEEDED(hr)) return -1;
 
-    auto model = deskdup::Model{};
-    model.duplication().setOutputRect(deskdup::Application::defaultOutputRect());
-
-    auto app = deskdup::Application{model, instanceHandle};
+    auto app = deskdup::MainApplication{instanceHandle};
     return app.run();
 }
