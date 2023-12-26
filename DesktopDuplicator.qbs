@@ -36,6 +36,12 @@ Project {
         hlsl.shaderModel: '4_0_level_9_3'
 
         Group {
+            name: 'PCH'
+            prefix: 'src/'
+            files: ['stable.h']
+            fileTags: ["cpp_pch_src"]
+        }
+        Group {
             name: 'Meta'
             prefix: 'src/meta/'
             files: [
