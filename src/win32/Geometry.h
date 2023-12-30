@@ -11,7 +11,7 @@ struct Point {
     constexpr bool operator==(const Point &) const = default;
 
     /// construct Point from win32 POINT
-    static constexpr auto fromPOINT(const POINT &point) -> Point { return {point.x, point.y}; }
+    static constexpr auto fromPOINT(POINT point) -> Point { return {point.x, point.y}; }
 
     /// create a win32 POINT from this
     constexpr auto toPOINT() const -> POINT { return {x, y}; }
@@ -31,7 +31,7 @@ struct Dimension {
 
     constexpr bool operator==(const Dimension &) const = default;
 
-    static constexpr auto fromSIZE(const SIZE &size) -> Dimension { return {size.cx, size.cy}; }
+    static constexpr auto fromSIZE(SIZE size) -> Dimension { return {size.cx, size.cy}; }
 
     constexpr auto toSIZE() const -> SIZE { return {width, height}; }
 };
@@ -47,14 +47,14 @@ struct Rect {
     constexpr bool operator==(const Rect &) const = default;
 
     /// construct from win32 RECT
-    static constexpr auto fromRECT(const RECT &rect) -> Rect {
+    static constexpr auto fromRECT(RECT rect) -> Rect {
         return {
             Point{rect.left, rect.top},
             Dimension{rect.right - rect.left, rect.bottom - rect.top},
         };
     }
     /// construct from two win32 POINTs
-    static constexpr auto fromPOINTS(const POINT &min, const POINT &max) -> Rect {
+    static constexpr auto fromPOINTS(POINT min, POINT max) -> Rect {
         return {
             Point{min.x, min.y},
             Dimension{max.x - min.x, max.y - min.y},

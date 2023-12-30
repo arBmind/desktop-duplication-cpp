@@ -8,8 +8,7 @@ namespace win32 {
 
 MenuEntry::MenuEntry(const MenuEntry &o)
     : icon(DuplicateIcon(nullptr, o.icon))
-    , bitmap(
-          o.bitmap ? static_cast<HBITMAP>(CopyImage(o.bitmap, IMAGE_BITMAP, 0, 0, 0)) : HBITMAP{})
+    , bitmap(o.bitmap ? static_cast<HBITMAP>(CopyImage(o.bitmap, IMAGE_BITMAP, 0, 0, 0)) : HBITMAP{})
     , tooltip(o.tooltip)
     , flags(o.flags) {}
 
@@ -17,8 +16,7 @@ auto MenuEntry::operator=(const MenuEntry &o) -> MenuEntry & {
     if (icon) DestroyIcon(icon);
     if (bitmap) DeleteObject(bitmap);
     icon = o.icon ? DuplicateIcon(nullptr, o.icon) : HICON{};
-    bitmap =
-        o.bitmap ? static_cast<HBITMAP>(CopyImage(o.bitmap, IMAGE_BITMAP, 0, 0, 0)) : HBITMAP{};
+    bitmap = o.bitmap ? static_cast<HBITMAP>(CopyImage(o.bitmap, IMAGE_BITMAP, 0, 0, 0)) : HBITMAP{};
     tooltip = o.tooltip;
     flags = o.flags;
     return *this;
@@ -28,10 +26,9 @@ TaskbarList::TaskbarList(HWND window, Config config)
     : m_window(window)
     , m_idBase(config.idBase)
     , m_iconSize(config.iconSize) {
-    auto hr = CoCreateInstance(
-        CLSID_TaskbarList, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(p.GetAddressOf()));
+    auto hr = CoCreateInstance(CLSID_TaskbarList, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(p.GetAddressOf()));
     if (SUCCEEDED(hr)) {
-        hr = p->HrInit();
+        p->HrInit();
     }
 }
 

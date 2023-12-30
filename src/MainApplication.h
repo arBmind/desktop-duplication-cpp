@@ -8,6 +8,8 @@
 
 #include "win32/PowerRequest.h"
 
+#include <optional>
+
 namespace deskdup {
 
 struct MainApplication final : private MainController {
@@ -44,9 +46,9 @@ private:
     State m_state{};
     MainThread m_mainThread;
 
-    Optional<OutputWindow> m_outputWindow{};
-    Optional<CaptureAreaWindow> m_captureAreaWindow{};
-    Optional<DuplicationController> m_duplicationController{};
+    std::optional<OutputWindow> m_outputWindow{};
+    std::optional<CaptureAreaWindow> m_captureAreaWindow{};
+    std::optional<DuplicationController> m_duplicationController{};
 
     using PowerRequest = win32::PowerRequest<PowerRequestDisplayRequired, PowerRequestSystemRequired>;
     PowerRequest m_powerRequest;

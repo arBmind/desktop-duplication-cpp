@@ -10,7 +10,6 @@
 
 #include <optional>
 #include <thread>
-#include <vector>
 
 struct CapturedUpdate;
 
@@ -31,7 +30,7 @@ using win32::Thread;
 /// Interaction with the Capturing Thread
 /// note: all public methods should be called by main thread!
 struct CaptureThread {
-    using SetErrorFunc = void(void *, std::exception_ptr);
+    using SetErrorFunc = void(void *, const std::exception_ptr &);
     using SetFrameFunc = void(void *, CapturedUpdate &&, const FrameContext &, size_t threadIndex);
 
     struct Config {
@@ -45,7 +44,7 @@ struct CaptureThread {
         template<class T>
         void setCallbacks(T *p) {
             callbackPtr = p;
-            setErrorCallback = [](void *ptr, std::exception_ptr exception) {
+            setErrorCallback = [](void *ptr, const std::exception_ptr &exception) {
                 auto *cb = std::bit_cast<T *>(ptr);
                 cb->setError(exception);
             };
@@ -82,7 +81,7 @@ private:
 
     auto captureUpdate() -> std::optional<CapturedUpdate>;
 
-    static void noopSetErrorCallback(void *, std::exception_ptr) {}
+    static void noopSetErrorCallback(void *, const std::exception_ptr &) {}
     static void noopSetFrameCallback(void *, CapturedUpdate &&, const FrameContext &, size_t /*threadIndex*/) {}
 
 private:

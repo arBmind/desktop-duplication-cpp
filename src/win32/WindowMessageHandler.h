@@ -10,10 +10,7 @@
 
 namespace win32 {
 
-template<class T>
-using Optional = std::optional<T>;
-
-using OptLRESULT = Optional<LRESULT>;
+using OptLRESULT = std::optional<LRESULT>;
 
 using Milliseconds = std::chrono::milliseconds;
 

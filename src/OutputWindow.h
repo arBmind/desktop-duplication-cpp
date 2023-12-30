@@ -5,9 +5,10 @@
 
 #include "win32/Window.h"
 
+#include <optional>
+
 namespace deskdup {
 
-using win32::Optional;
 using win32::OptLRESULT;
 using win32::Window;
 using win32::WindowClass;
@@ -44,7 +45,7 @@ private:
 
     void close() override;
 
-    Optional<Point> m_draggingLastPosition{};
+    std::optional<Point> m_draggingLastPosition{};
     void mouseMove(const Point &mousePosition, DWORD keyState) override;
     void mouseLeftButtonDown(const Point &mousePosition, DWORD keyState) override;
     void mouseLeftButtonUp(const Point &mousePosition, DWORD keyState) override;

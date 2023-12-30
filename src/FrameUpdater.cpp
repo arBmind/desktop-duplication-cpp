@@ -11,9 +11,7 @@ using win32::Dimension;
 using win32::Point;
 using win32::Rect;
 
-auto rotate(const Rect &rect, DXGI_MODE_ROTATION rotation, const Dimension &spaceDim) noexcept
-    -> Rect {
-
+auto rotate(Rect rect, DXGI_MODE_ROTATION rotation, Dimension spaceDim) noexcept -> Rect {
     switch (rotation) {
     case DXGI_MODE_ROTATION_UNSPECIFIED:
     case DXGI_MODE_ROTATION_IDENTITY: return rect;
@@ -39,9 +37,7 @@ auto rotate(const Rect &rect, DXGI_MODE_ROTATION rotation, const Dimension &spac
 } // namespace
 
 FrameUpdater::FrameUpdater(InitArgs &&args)
-    : m_dx(std::move(args)) {
-    // m_dirtyQuads.reserve(128);
-}
+    : m_dx(std::move(args)) {}
 
 void FrameUpdater::update(const FrameUpdate &data, const FrameContext &context) {
     performMoves(data, context);
@@ -56,20 +52,23 @@ void FrameUpdater::performMoves(const FrameUpdate &data, const FrameContext &con
     const auto &desktopDim = desktopRect.dimension;
 
     if (!m_dx.moveTmp) {
-        D3D11_TEXTURE2D_DESC target_description;
+        auto target_description = D3D11_TEXTURE2D_DESC{};
         m_dx.target->GetDesc(&target_description);
 
-        D3D11_TEXTURE2D_DESC move_description;
-        move_description = target_description;
-        move_description.Width = desktopDim.width;
-        move_description.Height = desktopDim.height;
-        move_description.MipLevels = 1;
-        move_description.BindFlags = D3D11_BIND_RENDER_TARGET;
-        move_description.MiscFlags = 0;
-        const auto result =
-            m_dx.device()->CreateTexture2D(&move_description, nullptr, &m_dx.moveTmp);
-        if (IS_ERROR(result))
-            throw RenderFailure(result, "Failed to create move temporary texture");
+        auto move_description = D3D11_TEXTURE2D_DESC{
+            .Width = static_cast<UINT>(desktopDim.width),
+            .Height = static_cast<UINT>(desktopDim.height),
+            .MipLevels = 1,
+            .ArraySize = target_description.ArraySize,
+            .Format = target_description.Format,
+            .SampleDesc = target_description.SampleDesc,
+            .Usage = target_description.Usage,
+            .BindFlags = D3D11_BIND_RENDER_TARGET,
+            .CPUAccessFlags = target_description.CPUAccessFlags,
+            .MiscFlags = 0,
+        };
+        const auto result = m_dx.device()->CreateTexture2D(&move_description, nullptr, &m_dx.moveTmp);
+        if (IS_ERROR(result)) throw RenderFailure(result, "Failed to create move temporary texture");
     }
 
     const auto target_x = context.output_desc.DesktopCoordinates.left - context.offset.x;
@@ -80,27 +79,20 @@ void FrameUpdater::performMoves(const FrameUpdate &data, const FrameContext &con
         auto moveDestinationRect = Rect::fromRECT(move.DestinationRect);
         auto moveSourcePoint = Point::fromPOINT(move.SourcePoint);
 
-        const auto sourceRect =
-            rotate(Rect{moveSourcePoint, moveDestinationRect.dimension}, rotation, desktopDim);
+        const auto sourceRect = rotate(Rect{moveSourcePoint, moveDestinationRect.dimension}, rotation, desktopDim);
         const auto dest = rotate(moveDestinationRect, rotation, desktopDim);
 
-        D3D11_BOX box;
-        box.left = sourceRect.left() + target_x;
-        box.top = sourceRect.top() + target_y;
-        box.front = 0;
-        box.right = sourceRect.right() + target_x;
-        box.bottom = sourceRect.bottom() + target_y;
-        box.back = 1;
+        auto box = D3D11_BOX{
+            .left = static_cast<UINT>(sourceRect.left() + target_x),
+            .top = static_cast<UINT>(sourceRect.top() + target_y),
+            .front = 0,
+            .right = static_cast<UINT>(sourceRect.right() + target_x),
+            .bottom = static_cast<UINT>(sourceRect.bottom() + target_y),
+            .back = 1,
+        };
 
         m_dx.deviceContext()->CopySubresourceRegion(
-            m_dx.moveTmp.Get(),
-            0,
-            sourceRect.left(),
-            sourceRect.top(),
-            0,
-            m_dx.target.Get(),
-            0,
-            &box);
+            m_dx.moveTmp.Get(), 0, sourceRect.left(), sourceRect.top(), 0, m_dx.target.Get(), 0, &box);
 
         box.left = sourceRect.left();
         box.top = sourceRect.top();
@@ -108,14 +100,7 @@ void FrameUpdater::performMoves(const FrameUpdate &data, const FrameContext &con
         box.bottom = sourceRect.bottom();
 
         m_dx.deviceContext()->CopySubresourceRegion(
-            m_dx.target.Get(),
-            0,
-            dest.left() + target_x,
-            dest.top() + target_y,
-            0,
-            m_dx.moveTmp.Get(),
-            0,
-            &box);
+            m_dx.target.Get(), 0, dest.left() + target_x, dest.top() + target_y, 0, m_dx.moveTmp.Get(), 0, &box);
     }
 }
 
@@ -128,10 +113,10 @@ void FrameUpdater::updateDirty(const FrameUpdate &data, const FrameContext &cont
     ComPtr<ID3D11ShaderResourceView> shader_resource = m_dx.createShaderTexture(desktop);
     m_dx.deviceContext()->PSSetShaderResources(0, 1, shader_resource.GetAddressOf());
 
-    D3D11_TEXTURE2D_DESC target_description;
+    auto target_description = D3D11_TEXTURE2D_DESC{};
     m_dx.target->GetDesc(&target_description);
 
-    D3D11_TEXTURE2D_DESC desktop_description;
+    auto desktop_description = D3D11_TEXTURE2D_DESC{};
     desktop->GetDesc(&desktop_description);
 
     const auto target_x = context.output_desc.DesktopCoordinates.left - context.offset.x;
@@ -152,26 +137,20 @@ void FrameUpdater::updateDirty(const FrameUpdate &data, const FrameContext &cont
 
     auto vertexBufferSize = static_cast<uint32_t>(sizeof(quad_vertices) * dirts.size());
     if (m_dx.vertexBufferSize < vertexBufferSize) {
-        D3D11_BUFFER_DESC buffer_description;
-        RtlZeroMemory(&buffer_description, sizeof(buffer_description));
-        buffer_description.Usage = D3D11_USAGE_DEFAULT;
-        [[gsl::suppress("26472")]] // conversion required because of APIs
-        buffer_description.ByteWidth = vertexBufferSize;
-        buffer_description.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-        buffer_description.Usage = D3D11_USAGE_DYNAMIC;
-        buffer_description.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-
-        // D3D11_SUBRESOURCE_DATA init_data;
-        // RtlZeroMemory(&init_data, sizeof(init_data));
-        // init_data.pSysMem = m_dirtyQuads.data();
-
-        const auto result =
-            m_dx.device()->CreateBuffer(&buffer_description, nullptr, &m_dx.vertexBuffer);
+        auto buffer_description = D3D11_BUFFER_DESC{
+            .ByteWidth = vertexBufferSize,
+            .Usage = D3D11_USAGE_DYNAMIC,
+            .BindFlags = D3D11_BIND_VERTEX_BUFFER,
+            .CPUAccessFlags = D3D11_CPU_ACCESS_WRITE,
+            .MiscFlags = {},
+            .StructureByteStride = {},
+        };
+        const auto result = m_dx.device()->CreateBuffer(&buffer_description, nullptr, &m_dx.vertexBuffer);
         if (IS_ERROR(result)) throw RenderFailure(result, "Failed to create dirty vertex buffer");
         m_dx.vertexBufferSize = vertexBufferSize;
     }
 
-    D3D11_MAPPED_SUBRESOURCE mapped;
+    auto mapped = D3D11_MAPPED_SUBRESOURCE{};
     const auto subresource = 0;
     const auto mapType = D3D11_MAP_WRITE_DISCARD;
     const unsigned mapFlags = 0;
@@ -179,13 +158,10 @@ void FrameUpdater::updateDirty(const FrameUpdate &data, const FrameContext &cont
 
     auto *vertex_ptr = static_cast<quad_vertices *>(mapped.pData);
 
-    // m_dirtyQuads.reserve(dirts.size());
-    // m_dirtyQuads.clear();
     for (const auto &dirt : dirts) {
         auto dirtRect = Rect::fromRECT(dirt);
         const auto rotated = rotate(dirtRect, rotation, desktopRect.dimension);
-        // quad_vertices vertices;
-        auto &vertices = *static_cast<quad_vertices *>(vertex_ptr);
+        auto &vertices = *vertex_ptr;
 
         vertices[0] = make_vertex(rotated.left(), rotated.bottom());
         vertices[1] = make_vertex(rotated.left(), rotated.top());
@@ -193,24 +169,22 @@ void FrameUpdater::updateDirty(const FrameUpdate &data, const FrameContext &cont
         vertices[3] = vertices[2];
         vertices[4] = vertices[1];
         vertices[5] = make_vertex(rotated.right(), rotated.top());
-
-        // m_dirtyQuads.push_back(vertices);
         vertex_ptr++;
     }
     m_dx.deviceContext()->Unmap(m_dx.vertexBuffer.Get(), 0);
 
     const uint32_t stride = sizeof(Vertex);
     const uint32_t offset = 0;
-    m_dx.deviceContext()->IASetVertexBuffers(
-        0, 1, m_dx.vertexBuffer.GetAddressOf(), &stride, &offset);
+    m_dx.deviceContext()->IASetVertexBuffers(0, 1, m_dx.vertexBuffer.GetAddressOf(), &stride, &offset);
 
-    D3D11_VIEWPORT view_port;
-    view_port.Width = static_cast<FLOAT>(target_description.Width);
-    view_port.Height = static_cast<FLOAT>(target_description.Height);
-    view_port.MinDepth = 0.0f;
-    view_port.MaxDepth = 1.0f;
-    view_port.TopLeftX = 0.0f;
-    view_port.TopLeftY = 0.0f;
+    auto view_port = D3D11_VIEWPORT{
+        .TopLeftX = 0.f,
+        .TopLeftY = 0.f,
+        .Width = static_cast<FLOAT>(target_description.Width),
+        .Height = static_cast<FLOAT>(target_description.Height),
+        .MinDepth = 0.f,
+        .MaxDepth = 1.f,
+    };
     m_dx.deviceContext()->RSSetViewports(1, &view_port);
 
     [[gsl::suppress("26472")]] // conversion required because of APIs

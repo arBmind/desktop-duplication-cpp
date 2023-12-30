@@ -1,7 +1,5 @@
 #include "Window.h"
 
-// #include <dwmapi.h>
-
 namespace win32 {
 
 namespace {
@@ -55,12 +53,6 @@ auto Window::rect() const -> Rect {
     return Rect::fromRECT(rect);
 }
 
-// auto Window::extendedFrameRect() const -> Rect {
-//     auto rect = RECT{};
-//     ::DwmGetWindowAttribute(m_windowHandle, DWMWA_EXTENDED_FRAME_BOUNDS, &rect, sizeof(rect));
-//     return Rect::fromRECT(rect);
-// }
-
 auto Window::clientRect() const -> Rect {
     auto rect = RECT{};
     ::GetClientRect(m_windowHandle, &rect);
@@ -88,7 +80,6 @@ auto Window::placement() const -> Placement {
             if (windowPlacement.showCmd == SW_SHOWMINIMIZED) return ShowState::Minimized;
             return ShowState::Normal;
         }(),
-        // Rect::fromPOINTS(windowPlacement.ptMinPosition, windowPlacement.ptMaxPosition),
         currentRect, // use correct values!
         Rect::fromRECT(windowPlacement.rcNormalPosition),
     };
@@ -160,11 +151,11 @@ void Window::showMinimized() { ::ShowWindowAsync(m_windowHandle, SW_SHOWMINIMIZE
 
 void Window::update() { ::UpdateWindow(m_windowHandle); }
 
-void Window::move(const Rect &rect) {
+void Window::move(Rect rect) {
     const auto repaint = true;
     ::MoveWindow(m_windowHandle, rect.left(), rect.top(), rect.width(), rect.height(), repaint);
 }
-void Window::moveBorder(const Rect &rect) {
+void Window::moveBorder(Rect rect) {
     auto wRect = rect.toRECT();
     auto hasMenu = false;
     ::AdjustWindowRectEx(&wRect, WS_THICKFRAME, hasMenu, WS_EX_OVERLAPPEDWINDOW);
@@ -175,7 +166,7 @@ void Window::moveBorder(const Rect &rect) {
     ::MoveWindow(m_windowHandle, aRect.left(), top, aRect.width(), height, repaint);
 }
 
-void Window::moveClient(const Rect &rect) {
+void Window::moveClient(Rect rect) {
     auto windowInfo = WINDOWINFO{};
     windowInfo.cbSize = sizeof(WINDOWINFO);
     ::GetWindowInfo(m_windowHandle, &windowInfo);
@@ -187,26 +178,27 @@ void Window::moveClient(const Rect &rect) {
     ::MoveWindow(m_windowHandle, left, top, right - left, bottom - top, repaint);
 }
 
-void Window::setPosition(const Point &point) {
+void Window::setPosition(Point point) {
     auto flags = SWP_NOZORDER | SWP_NOSIZE | SWP_NOSENDCHANGING | SWP_ASYNCWINDOWPOS;
     ::SetWindowPos(m_windowHandle, nullptr, point.x, point.y, 0, 0, flags);
 }
 
 bool Window::setPlacement(const Placement &placement) {
-    auto windowPlacement = WINDOWPLACEMENT{};
-    windowPlacement.length = sizeof(WINDOWPLACEMENT);
-    windowPlacement.flags = WPF_ASYNCWINDOWPLACEMENT;
-    windowPlacement.showCmd = [&]() -> UINT {
-        switch (placement.showState) {
-        case ShowState::Normal: return SW_SHOWNORMAL;
-        case ShowState::Maximized: return SW_SHOWMAXIMIZED;
-        case ShowState::Minimized: return SW_SHOWMINIMIZED;
-        }
-        return SW_HIDE;
-    }();
-    windowPlacement.ptMinPosition = placement.currentRect.topLeft.toPOINT();
-    windowPlacement.ptMaxPosition = placement.currentRect.bottomRight().toPOINT();
-    windowPlacement.rcNormalPosition = placement.normalRect.toRECT();
+    auto const windowPlacement = WINDOWPLACEMENT{
+        .length = sizeof(WINDOWPLACEMENT),
+        .flags = WPF_ASYNCWINDOWPLACEMENT,
+        .showCmd = [&]() -> UINT {
+            switch (placement.showState) {
+            case ShowState::Normal: return SW_SHOWNORMAL;
+            case ShowState::Maximized: return SW_SHOWMAXIMIZED;
+            case ShowState::Minimized: return SW_SHOWMINIMIZED;
+            }
+            return SW_HIDE;
+        }(),
+        .ptMinPosition = placement.currentRect.topLeft.toPOINT(),
+        .ptMaxPosition = placement.currentRect.bottomRight().toPOINT(),
+        .rcNormalPosition = placement.normalRect.toRECT(),
+    };
     return 0 != ::SetWindowPlacement(m_windowHandle, &windowPlacement);
 }
 

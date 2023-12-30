@@ -4,8 +4,6 @@
 #include "Model.h"
 #include "renderer.h"
 
-#include <chrono>
-
 namespace deskdup {
 namespace {
 
@@ -69,10 +67,7 @@ void DuplicationController::updateOutputZoom(float zoom) {
 }
 
 void DuplicationController::updateCaptureOffset(Vec2f offset) {
-    m_renderThread.thread().queueUserApc([this, offset]() {
-        m_renderThread.windowRenderer().updateOffset(offset);
-        // m_renderThread.updated();
-    });
+    m_renderThread.thread().queueUserApc([this, offset]() { m_renderThread.windowRenderer().updateOffset(offset); });
     if (m_controller.state().duplicationStatus != DuplicationStatus::Live) {
         restart();
     }
@@ -85,7 +80,7 @@ void DuplicationController::restart() {
     }
 }
 
-auto DuplicationController::renderThreadConfig(OperationModeLens const &lens) -> RenderThread::Config {
+auto DuplicationController::renderThreadConfig(OperationModeLens lens) -> RenderThread::Config {
     auto config = RenderThread::Config{
         .pointerBuffer = m_pointerUpdater.data(),
         .outputZoom = lens.outputZoom(),
@@ -101,19 +96,6 @@ auto DuplicationController::captureThreadConfig() -> CaptureThread::Config {
     config.setCallbacks(this);
     return config;
 }
-
-// void DuplicationController::update() {
-//     if (m_lastCaptureStatus != m_captureModel.status()) {
-//         updateCaptureStatus();
-//     }
-//     if (m_isFreezed != m_duplicationModel.isFreezed()) {
-//         m_isFreezed = m_duplicationModel.isFreezed();
-//         if (!m_isFreezed) captureNextFrame();
-//     }
-//     if (m_lastCaptureStatus == CaptureStatus::Enabled) {
-//         render();
-//     }
-// }
 
 void DuplicationController::startOnMain() {
     if (m_status == Status::Paused) {
@@ -265,7 +247,7 @@ auto DuplicationController::forwardRenderMessage(const win32::WindowMessage &msg
     return m_outputWindow.handleMessage(msg);
 }
 
-void DuplicationController::setError(std::exception_ptr error) {
+void DuplicationController::setError(const std::exception_ptr &error) {
     m_mainThread.queueUserApc([this, error]() {
         try {
             std::rethrow_exception(error);

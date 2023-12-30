@@ -15,8 +15,7 @@ namespace win32 {
 
 using Name = std::wstring;
 using Milliseconds = std::chrono::milliseconds;
-using HundredNanoSeconds =
-    std::chrono::duration<int64_t, std::ratio_multiply<std::hecto, std::nano>>;
+using HundredNanoSeconds = std::chrono::duration<int64_t, std::ratio_multiply<std::hecto, std::nano>>;
 using TimePoint = std::chrono::system_clock::time_point;
 
 /// Wrapper for a win32 WaitableTimer handle
@@ -38,17 +37,15 @@ struct WaitableTimer {
         Milliseconds tolerableDelay = {};
     };
     template<MemberMethod auto M>
-    bool set(SetArgs setArgs, MemberMethodClassArgsTuple<M> &&args) {
+    bool set(SetArgs const &setArgs, MemberMethodClassArgsTuple<M> &&args) {
         using ArgsTuple = MemberMethodClassArgsTuple<M>;
         struct Helper {
-            static void CALLBACK
-            apc(LPVOID parameter, DWORD /*dwTimerLowValue*/, DWORD /*dwTimerHighValue*/) noexcept {
+            static void CALLBACK apc(LPVOID parameter, DWORD /*dwTimerLowValue*/, DWORD /*dwTimerHighValue*/) noexcept {
                 auto tuplePtr = std::bit_cast<ArgsTuple *>(parameter);
                 std::apply(M, *tuplePtr);
             }
             static void freeArgs(void *parameter) {
-                auto tuplePtr =
-                    std::unique_ptr<ArgsTuple>(std::bit_cast<ArgsTuple *>(parameter));
+                auto tuplePtr = std::unique_ptr<ArgsTuple>(std::bit_cast<ArgsTuple *>(parameter));
                 (void)tuplePtr;
             }
         };
@@ -59,7 +56,7 @@ struct WaitableTimer {
     void cancel();
 
 private:
-    bool setImpl(SetArgs, PTIMERAPCROUTINE, LPVOID);
+    bool setImpl(SetArgs const &, PTIMERAPCROUTINE, LPVOID);
 
 private:
     Handle m_handle;

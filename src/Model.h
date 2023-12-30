@@ -2,7 +2,6 @@
 #include "win32/DisplayMonitor.h"
 #include "win32/Geometry.h"
 
-#include <string>
 #include <vector>
 
 namespace deskdup {

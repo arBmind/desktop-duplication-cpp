@@ -1,7 +1,6 @@
 #pragma once
 #include <bit>
 #include <memory>
-#include <type_traits>
 
 template<class Parameter = void*>
 class UniqueCallbackAdapter final {

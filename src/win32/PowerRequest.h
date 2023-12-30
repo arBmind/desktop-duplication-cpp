@@ -2,8 +2,6 @@
 #include <Windows.h>
 #include <windowsx.h>
 
-#include <utility>
-
 namespace win32 {
 
 namespace {

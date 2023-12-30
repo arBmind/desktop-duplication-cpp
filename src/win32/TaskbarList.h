@@ -1,12 +1,10 @@
 #pragma once
-
+#include "meta/comptr.h"
 #include "meta/flags.h"
-#include <meta/comptr.h>
 
 #include <ShObjIdl.h>
 
 #include <array>
-#include <inttypes.h>
 #include <string>
 
 namespace win32 {

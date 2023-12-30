@@ -4,7 +4,6 @@
 #include "meta/scope_guard.h"
 
 #include <algorithm>
-#include <bit>
 
 namespace deskdup {
 
@@ -101,21 +100,16 @@ void MainApplication::changeOperationMode(OperationMode operationMode) {
     if (m_state.config.operationMode != operationMode) {
         m_state.config.operationMode = operationMode;
         if (m_outputWindow) m_outputWindow->updateOperationMode(operationMode);
+        if (m_captureAreaWindow) m_captureAreaWindow->updateRect(operatonModeLens().captureAreaRect());
+        if (m_duplicationController) {
+            m_duplicationController->updateCaptureOffset(operatonModeLens().captureOffset());
+            m_duplicationController->updateOutputZoom(operatonModeLens().outputZoom());
+        }
         if (operationMode == OperationMode::CaptureArea) {
-            if (m_captureAreaWindow) m_captureAreaWindow->updateRect(operatonModeLens().captureAreaRect());
-            if (m_duplicationController) {
-                m_duplicationController->updateCaptureOffset(operatonModeLens().captureOffset());
-                m_duplicationController->updateOutputZoom(operatonModeLens().outputZoom());
-            }
             m_state.outputMonitor = m_state.config.captureMonitor;
             updateCaptureAreaOutputScreen();
         }
         if (operationMode == OperationMode::PresentMirror) {
-            if (m_captureAreaWindow) m_captureAreaWindow->updateRect(operatonModeLens().captureAreaRect());
-            if (m_duplicationController) {
-                m_duplicationController->updateCaptureOffset(operatonModeLens().captureOffset());
-                m_duplicationController->updateOutputZoom(operatonModeLens().outputZoom());
-            }
             if (m_state.outputMonitor != m_state.config.captureMonitor) {
                 if (m_state.duplicationStatus == DuplicationStatus::Live && m_duplicationController)
                     m_duplicationController->restart();
@@ -209,7 +203,7 @@ void MainApplication::moveOutputWindowTo(Point topLeft) {
 }
 
 void MainApplication::moveCaptureOffsetByScreen(int dx, int dy) {
-    if (config().operationMode != OperationMode::PresentMirror) return;
+    if (config().operationMode != OperationMode::PresentMirror) return; // not used in this mode
     if (dx != 0 || dy != 0) {
         m_state.config.captureOffset.x += static_cast<float>(dx) / m_state.config.outputZoom;
         m_state.config.captureOffset.y += static_cast<float>(dy) / m_state.config.outputZoom;

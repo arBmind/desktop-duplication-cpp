@@ -6,13 +6,9 @@
 #include "meta/member_method.h"
 
 #include <chrono>
-#include <optional>
 #include <string_view>
 
 namespace win32 {
-
-template<class T>
-using Optional = std::optional<T>;
 
 using Name = std::wstring;
 using String = std::wstring;
@@ -123,10 +119,10 @@ struct Window {
     void update(); ///< trigger WM_PAINT for window
 
     // note: some app windows may not follow the move/resize!
-    void move(const Rect &); ///< move outer window rect
-    void moveBorder(const Rect &); ///< move window visible border to rect
-    void moveClient(const Rect &); ///< move window client rect
-    void setPosition(const Point &); ///< move top left corner (keeping size)
+    void move(Rect); ///< move outer window rect
+    void moveBorder(Rect); ///< move window visible border to rect
+    void moveClient(Rect); ///< move window client rect
+    void setPosition(Point); ///< move top left corner (keeping size)
     bool setPlacement(const Placement &); ///< restore a placement
 
     void styleNonLayered();

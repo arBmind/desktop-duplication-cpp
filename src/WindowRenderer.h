@@ -16,7 +16,7 @@ using win32::Vec2f;
 
 // manages state how to render background & pointer to output window
 struct WindowRenderer {
-    using SetErrorFunc = void(void *, std::exception_ptr);
+    using SetErrorFunc = void(void *, const std::exception_ptr &);
     struct Args {
         PointerBuffer const &pointerBuffer;
         float outputZoom{1.0f};
@@ -29,7 +29,7 @@ struct WindowRenderer {
         template<class T>
         void setCallbacks(T *p) {
             callbackPtr = p;
-            setErrorCallback = [](void *ptr, std::exception_ptr exception) {
+            setErrorCallback = [](void *ptr, const std::exception_ptr &exception) {
                 auto *cb = std::bit_cast<T *>(ptr);
                 cb->setError(exception);
             };
@@ -39,7 +39,7 @@ struct WindowRenderer {
         BaseRenderer::InitArgs basic{};
         HWND windowHandle{}; // window to render to
         Dimension windowDimension{};
-        ComPtr<ID3D11Texture2D> texture; // texture is rendered as quad
+        ComPtr<ID3D11Texture2D> texture{}; // texture is rendered as quad
     };
     using Vertex = BaseRenderer::Vertex;
 
@@ -70,7 +70,7 @@ private:
     void updatePointerShape(const PointerBuffer &pointer);
     void updatePointerVertices(const PointerBuffer &pointer);
 
-    static void noopSetErrorCallback(void *, std::exception_ptr) {}
+    static void noopSetErrorCallback(void *, const std::exception_ptr &) {}
 
 private:
     Args m_args;
@@ -95,15 +95,15 @@ private:
     public:
         void createRenderTarget();
 
-        void clearRenderTarget(const Color &c) { deviceContext()->ClearRenderTargetView(renderTarget.Get(), c.data()); }
+        void clearRenderTarget(Color c) { deviceContext()->ClearRenderTargetView(renderTarget.Get(), c.data()); }
         void activateRenderTarget() { deviceContext()->OMSetRenderTargets(1, renderTarget.GetAddressOf(), nullptr); }
 
         void activateBackgroundTexture() {
             deviceContext()->PSSetShaderResources(0, 1, backgroundTextureShaderResource.GetAddressOf());
         }
         void activateBackgroundVertexBuffer() {
-            const uint32_t stride = sizeof(Vertex);
-            const uint32_t offset = 0;
+            auto const stride = uint32_t{sizeof(Vertex)};
+            auto const offset = uint32_t{0};
             deviceContext()->IASetVertexBuffers(0, 1, backgroundVertexBuffer.GetAddressOf(), &stride, &offset);
         }
 
@@ -115,23 +115,23 @@ private:
             deviceContext()->PSSetSamplers(index, 1, linearSamplerState.GetAddressOf());
         }
         void activatePointerVertexBuffer() {
-            const uint32_t stride = sizeof(Vertex);
-            const uint32_t offset = 0;
+            auto const stride = uint32_t{sizeof(Vertex)};
+            auto const offset = uint32_t{0};
             deviceContext()->IASetVertexBuffers(0, 1, pointerVertexBuffer.GetAddressOf(), &stride, &offset);
         }
 
-        ComPtr<ID3D11Texture2D> backgroundTexture;
-        ComPtr<ID3D11ShaderResourceView> backgroundTextureShaderResource;
-        ComPtr<ID3D11Buffer> backgroundVertexBuffer;
-        ComPtr<IDXGISwapChain2> swapChain;
-        ComPtr<ID3D11RenderTargetView> renderTarget;
-        ComPtr<ID3D11PixelShader> maskedPixelShader;
-        ComPtr<ID3D11SamplerState> linearSamplerState;
+        ComPtr<ID3D11Texture2D> backgroundTexture{};
+        ComPtr<ID3D11ShaderResourceView> backgroundTextureShaderResource{};
+        ComPtr<ID3D11Buffer> backgroundVertexBuffer{};
+        ComPtr<IDXGISwapChain2> swapChain{};
+        ComPtr<ID3D11RenderTargetView> renderTarget{};
+        ComPtr<ID3D11PixelShader> maskedPixelShader{};
+        ComPtr<ID3D11SamplerState> linearSamplerState{};
 
-        ComPtr<ID3D11Texture2D> pointerTexture;
-        ComPtr<ID3D11ShaderResourceView> pointerTextureShaderResource;
-        ComPtr<ID3D11Buffer> pointerVertexBuffer;
+        ComPtr<ID3D11Texture2D> pointerTexture{};
+        ComPtr<ID3D11ShaderResourceView> pointerTextureShaderResource{};
+        ComPtr<ID3D11Buffer> pointerVertexBuffer{};
     };
 
-    std::optional<Resources> m_dx;
+    std::optional<Resources> m_dx{};
 };

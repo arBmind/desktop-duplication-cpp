@@ -3,7 +3,6 @@
 
 #include <array>
 #include <meta/comptr.h>
-#include <vector>
 
 struct FrameUpdate;
 struct FrameContext;
@@ -33,9 +32,7 @@ private:
 
         void prepare(HANDLE targetHandle);
 
-        void activateRenderTarget() {
-            deviceContext()->OMSetRenderTargets(1, renderTarget.GetAddressOf(), nullptr);
-        }
+        void activateRenderTarget() { deviceContext()->OMSetRenderTargets(1, renderTarget.GetAddressOf(), nullptr); }
 
         ComPtr<ID3D11Texture2D> target;
         ComPtr<ID3D11RenderTargetView> renderTarget;
@@ -45,6 +42,4 @@ private:
         uint32_t vertexBufferSize{};
     };
     Resources m_dx;
-
-    // std::vector<quad_vertices> m_dirtyQuads;
 };

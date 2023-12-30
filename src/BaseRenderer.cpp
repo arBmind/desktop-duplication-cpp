@@ -24,91 +24,103 @@ BaseRenderer::~BaseRenderer() {
     }
 }
 
-auto BaseRenderer::createShaderTexture(ID3D11Texture2D *texture) const
-    -> ComPtr<ID3D11ShaderResourceView> {
+auto BaseRenderer::createShaderTexture(ID3D11Texture2D *texture) const -> ComPtr<ID3D11ShaderResourceView> {
 
-    D3D11_TEXTURE2D_DESC description;
+    auto description = D3D11_TEXTURE2D_DESC{};
     texture->GetDesc(&description);
 
-    D3D11_SHADER_RESOURCE_VIEW_DESC shader_resource_description;
-    shader_resource_description.Format = description.Format;
-    shader_resource_description.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-    shader_resource_description.Texture2D.MostDetailedMip = description.MipLevels - 1;
-    shader_resource_description.Texture2D.MipLevels = description.MipLevels;
-
-    ComPtr<ID3D11ShaderResourceView> shader_resource;
-    const auto result =
-        m_device->CreateShaderResourceView(texture, &shader_resource_description, &shader_resource);
+    auto const shader_resource_description = D3D11_SHADER_RESOURCE_VIEW_DESC{
+        .Format = description.Format,
+        .ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D,
+        .Texture2D =
+            D3D11_TEX2D_SRV{
+                .MostDetailedMip = description.MipLevels - 1,
+                .MipLevels = description.MipLevels,
+            },
+    };
+    auto shader_resource = ComPtr<ID3D11ShaderResourceView>{};
+    auto const result = m_device->CreateShaderResourceView(texture, &shader_resource_description, &shader_resource);
     if (IS_ERROR(result)) throw Error{result, "Failed to create shader texture resource"};
     return shader_resource;
 }
 
 auto BaseRenderer::createLinearSampler() -> ComPtr<ID3D11SamplerState> {
-    D3D11_SAMPLER_DESC descrption;
-    RtlZeroMemory(&descrption, sizeof(descrption));
-    descrption.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-    descrption.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-    descrption.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
-    descrption.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
-    descrption.ComparisonFunc = D3D11_COMPARISON_NEVER;
-    descrption.MinLOD = 0;
-    descrption.MaxLOD = D3D11_FLOAT32_MAX;
+    auto const description = D3D11_SAMPLER_DESC{
+        .Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR,
+        .AddressU = D3D11_TEXTURE_ADDRESS_CLAMP,
+        .AddressV = D3D11_TEXTURE_ADDRESS_CLAMP,
+        .AddressW = D3D11_TEXTURE_ADDRESS_CLAMP,
+        .MipLODBias = {},
+        .MaxAnisotropy = {},
+        .ComparisonFunc = D3D11_COMPARISON_NEVER,
+        .BorderColor = {},
+        .MinLOD = 0,
+        .MaxLOD = D3D11_FLOAT32_MAX,
+    };
     ComPtr<ID3D11SamplerState> sampler;
-    const auto result = m_device->CreateSamplerState(&descrption, &sampler);
+    auto const result = m_device->CreateSamplerState(&description, &sampler);
     if (IS_ERROR(result)) throw Error{result, "Failed to create linear sampler state"};
     return sampler;
 }
 
 void BaseRenderer::createDiscreteSamplerState() {
-    D3D11_SAMPLER_DESC descrption;
-    RtlZeroMemory(&descrption, sizeof(descrption));
-    descrption.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
-    descrption.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-    descrption.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
-    descrption.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
-    descrption.ComparisonFunc = D3D11_COMPARISON_NEVER;
-    descrption.MinLOD = 0;
-    descrption.MaxLOD = D3D11_FLOAT32_MAX;
-    const auto result = m_device->CreateSamplerState(&descrption, &m_discreteSamplerState);
+    auto const description = D3D11_SAMPLER_DESC{
+        .Filter = D3D11_FILTER_MIN_MAG_MIP_POINT,
+        .AddressU = D3D11_TEXTURE_ADDRESS_CLAMP,
+        .AddressV = D3D11_TEXTURE_ADDRESS_CLAMP,
+        .AddressW = D3D11_TEXTURE_ADDRESS_CLAMP,
+        .MipLODBias = {},
+        .MaxAnisotropy = {},
+        .ComparisonFunc = D3D11_COMPARISON_NEVER,
+        .BorderColor = {},
+        .MinLOD = 0,
+        .MaxLOD = D3D11_FLOAT32_MAX,
+    };
+    auto const result = m_device->CreateSamplerState(&description, &m_discreteSamplerState);
     if (IS_ERROR(result)) throw Error{result, "Failed to create discrete sampler state"};
 }
 
 void BaseRenderer::createAlphaBlendState() {
-    D3D11_BLEND_DESC description;
-    description.AlphaToCoverageEnable = FALSE;
-    description.IndependentBlendEnable = FALSE;
-    description.RenderTarget[0].BlendEnable = TRUE;
-    description.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
-    description.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
-    description.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
-    description.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
-    description.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
-    description.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
-    description.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-    const auto result = m_device->CreateBlendState(&description, &m_alphaBlendState);
+    auto description = D3D11_BLEND_DESC{
+        .AlphaToCoverageEnable = FALSE,
+        .IndependentBlendEnable = FALSE,
+        .RenderTarget =
+            {
+                D3D11_RENDER_TARGET_BLEND_DESC{
+                    .BlendEnable = TRUE,
+                    .SrcBlend = D3D11_BLEND_SRC_ALPHA,
+                    .DestBlend = D3D11_BLEND_INV_SRC_ALPHA,
+                    .BlendOp = D3D11_BLEND_OP_ADD,
+                    .SrcBlendAlpha = D3D11_BLEND_ONE,
+                    .DestBlendAlpha = D3D11_BLEND_ZERO,
+                    .BlendOpAlpha = D3D11_BLEND_OP_ADD,
+                    .RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL,
+                },
+            },
+    };
+    auto const result = m_device->CreateBlendState(&description, &m_alphaBlendState);
     if (IS_ERROR(result)) throw Error{result, "Failed to create blend state"};
 }
 
 void BaseRenderer::createVertexShader() {
-    const auto size = ARRAYSIZE(g_VertexShader);
+    auto const size = ARRAYSIZE(g_VertexShader);
     auto shader = &g_VertexShader[0];
-    auto result = m_device->CreateVertexShader(shader, size, nullptr, &m_vertexShader);
+    static constexpr ID3D11ClassLinkage *noLinkage = nullptr;
+    auto result = m_device->CreateVertexShader(shader, size, noLinkage, &m_vertexShader);
     if (IS_ERROR(result)) throw Error{result, "Failed to create vertex shader"};
 
-    static const auto layout = std::array{
-        D3D11_INPUT_ELEMENT_DESC{
-            "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
-        D3D11_INPUT_ELEMENT_DESC{
-            "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 8, D3D11_INPUT_PER_VERTEX_DATA, 0}};
-    const auto layout_size = static_cast<uint32_t>(layout.size());
+    static auto const layout = std::array{
+        D3D11_INPUT_ELEMENT_DESC{"POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+        D3D11_INPUT_ELEMENT_DESC{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 8, D3D11_INPUT_PER_VERTEX_DATA, 0}};
+    auto const layout_size = static_cast<uint32_t>(layout.size());
     result = m_device->CreateInputLayout(layout.data(), layout_size, shader, size, &m_inputLayout);
     if (IS_ERROR(result)) throw Error{result, "Failed to create input layout"};
 }
 
 void BaseRenderer::createPlainPixelShader() {
-    const auto size = ARRAYSIZE(g_PlainPixelShader);
+    auto const size = ARRAYSIZE(g_PlainPixelShader);
     auto shader = &g_PlainPixelShader[0];
-    ID3D11ClassLinkage *linkage = nullptr;
-    const auto result = m_device->CreatePixelShader(shader, size, linkage, &m_plainPixelShader);
+    static constexpr ID3D11ClassLinkage *noLinkage = nullptr;
+    auto const result = m_device->CreatePixelShader(shader, size, noLinkage, &m_plainPixelShader);
     if (IS_ERROR(result)) throw Error{result, "Failed to create pixel shader"};
 }

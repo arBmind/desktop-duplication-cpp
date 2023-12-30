@@ -11,13 +11,11 @@
 #include "win32/WaitableTimer.h"
 #include "win32/Window.h"
 
-#include <memory> // std::unique_ptr
 #include <optional>
 
 namespace deskdup {
 
 using win32::Handle;
-using win32::Optional;
 using win32::Thread;
 using win32::ThreadLoop;
 using win32::WaitableTimer;
@@ -60,7 +58,7 @@ private:
     };
 
 private:
-    auto renderThreadConfig(OperationModeLens const &) -> RenderThread::Config;
+    auto renderThreadConfig(OperationModeLens) -> RenderThread::Config;
     auto captureThreadConfig() -> CaptureThread::Config;
 
     void startOnMain();
@@ -81,7 +79,7 @@ private:
 private:
     friend struct ::WindowRenderer;
     friend struct ::CaptureThread;
-    void setError(std::exception_ptr); // called on CaptureThread or RenderThread
+    void setError(const std::exception_ptr &); // called on CaptureThread or RenderThread
     void setFrame(CapturedUpdate &&, const FrameContext &, size_t threadIndex); // called on RenderThread
 
 private:
@@ -101,7 +99,7 @@ private:
     CaptureThread m_captureThread;
 
     ComPtr<ID3D11Texture2D> m_targetTexture;
-    Optional<FrameUpdater> m_frameUpdater;
+    std::optional<FrameUpdater> m_frameUpdater;
     PointerUpdater m_pointerUpdater;
 
     WaitableTimer m_retryTimer;

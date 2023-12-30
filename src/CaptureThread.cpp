@@ -1,7 +1,5 @@
 #include "CaptureThread.h"
 
-#include "renderer.h"
-
 #include "CapturedUpdate.h"
 
 #include "meta/scope_guard.h"
@@ -180,11 +178,8 @@ auto CaptureThread::captureUpdate() -> std::optional<CapturedUpdate> {
         auto pointerPtr = update.pointer.shape_buffer.data();
         const auto pointerSize = static_cast<uint32_t>(update.pointer.shape_buffer.size());
         auto sizeRequiredDummy = UINT{};
-        dxResult = m_dupl->GetFramePointerShape(
-            pointerSize,
-            pointerPtr,
-            &sizeRequiredDummy,
-            &update.pointer.shape_info);
+        dxResult =
+            m_dupl->GetFramePointerShape(pointerSize, pointerPtr, &sizeRequiredDummy, &update.pointer.shape_info);
         if (IS_ERROR(dxResult)) throw Expected{"Failed to get frame pointer shape in capture_thread"};
         // assert(size_required_dummy == frame.pointer_data.size());
     }

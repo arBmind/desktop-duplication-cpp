@@ -14,7 +14,7 @@ struct PointerBuffer {
 
     uint64_t shape_timestamp = 0; // timestamp of last shape update
     DXGI_OUTDUPL_POINTER_SHAPE_INFO shape_info{};
-    std::vector<uint8_t> shape_data; // buffer for with shape texture
+    std::vector<uint8_t> shape_data{}; // buffer for with shape texture
 };
 
 struct PointerUpdater {

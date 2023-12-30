@@ -7,8 +7,8 @@
 
 namespace win32 {
 
-auto operator<<(std::ostream &out, const Window::ShowState &st) -> std::ostream & {
-    switch (st) {
+auto operator<<(std::ostream &out, Window::ShowState state) -> std::ostream & {
+    switch (state) {
     case Window::ShowState::Normal: return out << "Normal";
     case Window::ShowState::Minimized: return out << "Minimized";
     case Window::ShowState::Maximized: return out << "Maximized";

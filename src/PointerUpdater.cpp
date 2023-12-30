@@ -3,7 +3,6 @@
 #include "CapturedUpdate.h"
 #include "FrameContext.h"
 
-#include <algorithm>
 #include <utility>
 
 void PointerUpdater::update(PointerUpdate &update, const FrameContext &context) {

@@ -45,10 +45,10 @@ Project {
             name: 'Meta'
             prefix: 'src/meta/'
             files: [
-                "array_view.h",
                 "callback_adapter.h",
                 "comptr.h",
                 "flags.h",
+                "fromByteSpan.h",
                 "member_method.h",
                 "scope_guard.h",
             ]
