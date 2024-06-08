@@ -125,7 +125,8 @@ void DuplicationController::startOnMain() {
             auto device = deviceValue.device;
             auto deviceContext = deviceValue.deviceContext;
 
-            auto dimensionData = renderer::getDimensionData(device, {m_controller.operatonModeLens().captureMonitor()});
+            auto dimensionData =
+                renderer::getDimensionData(device, {m_controller.operationModeLens().captureMonitor()});
             m_controller.updateScreenRect(dimensionData.rect);
             m_displayRect = dimensionData.rect;
 

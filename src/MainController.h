@@ -17,7 +17,7 @@ struct MainController {
 
     virtual auto state() const -> State const & = 0;
     auto config() const -> Config const { return state().config; }
-    auto operatonModeLens() const -> OperationModeLens const { return OperationModeLens{state()}; }
+    auto operationModeLens() const -> OperationModeLens const { return OperationModeLens{state()}; }
 
     virtual void quit() = 0;
     virtual void changeOperationMode(OperationMode) = 0;

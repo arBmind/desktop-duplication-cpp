@@ -229,7 +229,7 @@ void OutputWindow::contextMenu(const Point &position) {
     AppendMenu(hPopupMenu, MF_POPUP, std::bit_cast<UINT_PTR>(hResolutionMenu), L"Resolutions");
 
     auto hScreenMenu = CreatePopupMenu();
-    auto currentMonitor = m_controller.operatonModeLens().captureMonitor();
+    auto currentMonitor = m_controller.operationModeLens().captureMonitor();
     for (auto scr = 0; scr < 2; ++scr) {
         auto label = std::wstring{L"0"};
         label[0] = static_cast<wchar_t>(label[0] + scr);
@@ -302,7 +302,7 @@ void OutputWindow::killFocus() {
     if (m_pickWindow) {
         m_pickWindow = false;
         auto window = win32::Window::fromForeground();
-        auto rect = m_controller.operatonModeLens().captureAreaRect();
+        auto rect = m_controller.operationModeLens().captureAreaRect();
         auto mk = modifierKeys();
         if (mk == MK_SHIFT)
             window.moveBorder(rect);

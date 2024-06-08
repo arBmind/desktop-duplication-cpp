@@ -68,7 +68,7 @@ int MainApplication::run() {
         });
         m_captureAreaWindow.emplace(CaptureAreaWindow::Args{
             .windowClass = m_mainThread.windowClass(),
-            .rect = operatonModeLens().captureAreaRect(),
+            .rect = operationModeLens().captureAreaRect(),
         });
         m_duplicationController.emplace(DuplicationController::Args{
             .windowClass = m_mainThread.windowClass(),
@@ -100,10 +100,10 @@ void MainApplication::changeOperationMode(OperationMode operationMode) {
     if (m_state.config.operationMode != operationMode) {
         m_state.config.operationMode = operationMode;
         if (m_outputWindow) m_outputWindow->updateOperationMode(operationMode);
-        if (m_captureAreaWindow) m_captureAreaWindow->updateRect(operatonModeLens().captureAreaRect());
+        if (m_captureAreaWindow) m_captureAreaWindow->updateRect(operationModeLens().captureAreaRect());
         if (m_duplicationController) {
-            m_duplicationController->updateCaptureOffset(operatonModeLens().captureOffset());
-            m_duplicationController->updateOutputZoom(operatonModeLens().outputZoom());
+            m_duplicationController->updateCaptureOffset(operationModeLens().captureOffset());
+            m_duplicationController->updateOutputZoom(operationModeLens().outputZoom());
         }
         if (operationMode == OperationMode::CaptureArea) {
             m_state.outputMonitor = m_state.config.captureMonitor;
@@ -130,9 +130,9 @@ void MainApplication::updateScreenRect(Rect rect) {
     if (m_state.captureMonitorRect != rect) {
         m_state.captureMonitorRect = rect;
         if (config().operationMode == OperationMode::PresentMirror && m_captureAreaWindow)
-            m_captureAreaWindow->updateRect(operatonModeLens().captureAreaRect());
+            m_captureAreaWindow->updateRect(operationModeLens().captureAreaRect());
         if (config().operationMode == OperationMode::CaptureArea && m_duplicationController)
-            m_duplicationController->updateCaptureOffset(operatonModeLens().captureOffset());
+            m_duplicationController->updateCaptureOffset(operationModeLens().captureOffset());
     }
 }
 
@@ -155,14 +155,14 @@ void MainApplication::updateOutputRect(Rect rect) {
         if (m_outputWindow) m_outputWindow->updateRect(m_state.config.outputRect());
         if (config().operationMode == OperationMode::PresentMirror) {
             if (dimensionChanged && m_captureAreaWindow)
-                m_captureAreaWindow->updateRect(operatonModeLens().captureAreaRect());
+                m_captureAreaWindow->updateRect(operationModeLens().captureAreaRect());
         }
         if (dimensionChanged && m_duplicationController)
             m_duplicationController->updateOutputDimension(m_state.config.outputDimension);
         if (config().operationMode == OperationMode::CaptureArea) {
-            if (m_captureAreaWindow) m_captureAreaWindow->updateRect(operatonModeLens().captureAreaRect());
+            if (m_captureAreaWindow) m_captureAreaWindow->updateRect(operationModeLens().captureAreaRect());
             if (topLeftChanged && m_duplicationController)
-                m_duplicationController->updateCaptureOffset(operatonModeLens().captureOffset());
+                m_duplicationController->updateCaptureOffset(operationModeLens().captureOffset());
 
             updateCaptureAreaOutputScreen();
         }
@@ -173,7 +173,7 @@ void MainApplication::resizeOutputWindow(Dimension dimension, bool isMaximized) 
     if (m_state.config.outputDimension != dimension) {
         m_state.config.outputDimension = dimension;
         if (m_outputWindow) m_outputWindow->updateRect(m_state.config.outputRect());
-        if (m_captureAreaWindow) m_captureAreaWindow->updateRect(operatonModeLens().captureAreaRect());
+        if (m_captureAreaWindow) m_captureAreaWindow->updateRect(operationModeLens().captureAreaRect());
         if (m_duplicationController) m_duplicationController->updateOutputDimension(m_state.config.outputDimension);
     }
     if (m_state.outputMaximized != isMaximized) {
@@ -193,9 +193,9 @@ void MainApplication::moveOutputWindowTo(Point topLeft) {
         // note: on maximize the is triggered wrongly
         // if (m_outputWindow) m_outputWindow->updateRect(m_state.config.outputRect());
         if (config().operationMode == OperationMode::CaptureArea) {
-            if (m_captureAreaWindow) m_captureAreaWindow->updateRect(operatonModeLens().captureAreaRect());
+            if (m_captureAreaWindow) m_captureAreaWindow->updateRect(operationModeLens().captureAreaRect());
             if (m_duplicationController)
-                m_duplicationController->updateCaptureOffset(operatonModeLens().captureOffset());
+                m_duplicationController->updateCaptureOffset(operationModeLens().captureOffset());
 
             updateCaptureAreaOutputScreen();
         }
@@ -207,8 +207,8 @@ void MainApplication::moveCaptureOffsetByScreen(int dx, int dy) {
     if (dx != 0 || dy != 0) {
         m_state.config.captureOffset.x += static_cast<float>(dx) / m_state.config.outputZoom;
         m_state.config.captureOffset.y += static_cast<float>(dy) / m_state.config.outputZoom;
-        m_captureAreaWindow->updateRect(operatonModeLens().captureAreaRect());
-        if (m_duplicationController) m_duplicationController->updateCaptureOffset(operatonModeLens().captureOffset());
+        m_captureAreaWindow->updateRect(operationModeLens().captureAreaRect());
+        if (m_duplicationController) m_duplicationController->updateCaptureOffset(operationModeLens().captureOffset());
     }
 }
 
@@ -216,8 +216,8 @@ void MainApplication::resetOutputZoom() {
     if (config().operationMode != OperationMode::PresentMirror) return; // not used in this mode
     if (m_state.config.outputZoom != 1.0f) {
         m_state.config.outputZoom = 1.0f;
-        m_captureAreaWindow->updateRect(operatonModeLens().captureAreaRect());
-        if (m_duplicationController) m_duplicationController->updateOutputZoom(operatonModeLens().outputZoom());
+        m_captureAreaWindow->updateRect(operationModeLens().captureAreaRect());
+        if (m_duplicationController) m_duplicationController->updateOutputZoom(operationModeLens().outputZoom());
     }
 }
 
@@ -225,8 +225,8 @@ void MainApplication::zoomOutputBy(float delta) {
     if (config().operationMode != OperationMode::PresentMirror) return; // not used in this mode
     if (delta >= 0.0001f || delta <= 0.0001f) {
         m_state.config.outputZoom += delta;
-        m_captureAreaWindow->updateRect(operatonModeLens().captureAreaRect());
-        if (m_duplicationController) m_duplicationController->updateOutputZoom(operatonModeLens().outputZoom());
+        m_captureAreaWindow->updateRect(operationModeLens().captureAreaRect());
+        if (m_duplicationController) m_duplicationController->updateOutputZoom(operationModeLens().outputZoom());
     }
 }
 
@@ -242,10 +242,10 @@ void MainApplication::zoomOutputAt(Point point, float delta) {
         m_state.config.outputZoom += delta;
         m_state.config.captureOffset.x -= offsetPoint.x - static_cast<float>(mx) / m_state.config.outputZoom;
         m_state.config.captureOffset.y -= offsetPoint.y - static_cast<float>(my) / m_state.config.outputZoom;
-        m_captureAreaWindow->updateRect(operatonModeLens().captureAreaRect());
+        m_captureAreaWindow->updateRect(operationModeLens().captureAreaRect());
         if (m_duplicationController) {
-            m_duplicationController->updateCaptureOffset(operatonModeLens().captureOffset());
-            m_duplicationController->updateOutputZoom(operatonModeLens().outputZoom());
+            m_duplicationController->updateCaptureOffset(operationModeLens().captureOffset());
+            m_duplicationController->updateOutputZoom(operationModeLens().outputZoom());
         }
     }
 }
