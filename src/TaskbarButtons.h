@@ -37,10 +37,6 @@ private:
     win32::TaskbarList m_taskbarList{};
 
     bool m_updatedButtons{};
-    bool m_showsMaximized{};
-    SystemStatus m_showsSystemStatus{};
-    DuplicationStatus m_showsDuplicationStatus{};
-    bool m_showsVisibleArea{};
 };
 
 } // namespace deskdup

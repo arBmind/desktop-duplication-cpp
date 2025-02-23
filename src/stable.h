@@ -1,4 +1,3 @@
-#pragma
 
 #ifndef NOMINMAX
 #    define NOMINMAX

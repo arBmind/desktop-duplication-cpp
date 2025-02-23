@@ -2,6 +2,8 @@
 
 #include "win32/Process.h"
 
+#include "stable.h" // note: ensure the file is compiled
+
 auto WINAPI WinMain(_In_ HINSTANCE instanceHandle, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int /*showCommand*/) -> int {
     win32::Process::current_setDpiAwareness(win32::DpiAwareness::PerMonitorAwareV2);
     {

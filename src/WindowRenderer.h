@@ -5,6 +5,7 @@
 
 #include <dxgi1_3.h>
 
+#include <bit>
 #include <optional>
 
 struct PointerBuffer;

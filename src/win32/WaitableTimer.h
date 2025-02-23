@@ -59,7 +59,7 @@ private:
     bool setImpl(SetArgs const &, PTIMERAPCROUTINE, LPVOID);
 
 private:
-    Handle m_handle;
+    Handle m_handle{};
     Name m_timerName{};
     using DeleteFunc = void(void *);
     struct Deleter {
@@ -67,7 +67,7 @@ private:
         void operator()(void *ptr) const { func(ptr); }
     };
     using UniqueArgPtr = std::unique_ptr<void, Deleter>;
-    UniqueArgPtr m_args;
+    UniqueArgPtr m_args{nullptr, Deleter{}};
 };
 
 } // namespace win32

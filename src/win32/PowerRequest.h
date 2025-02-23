@@ -4,21 +4,19 @@
 
 namespace win32 {
 
-namespace {
-
-auto createPowerRequestHandle(const wchar_t *reasonString) noexcept -> HANDLE {
-    REASON_CONTEXT reason;
-    reason.Version = POWER_REQUEST_CONTEXT_VERSION;
-    reason.Flags = POWER_REQUEST_CONTEXT_SIMPLE_STRING;
-    [[gsl::suppress("26492")]] // the C API is not const correct!
-    reason.Reason.SimpleReasonString = const_cast<wchar_t *>(reasonString);
-    return PowerCreateRequest(&reason);
-}
-
-} // namespace
-
 template<POWER_REQUEST_TYPE... required>
 struct PowerRequest {
+private:
+    static auto createPowerRequestHandle(const wchar_t *reasonString) noexcept -> HANDLE {
+        REASON_CONTEXT reason;
+        reason.Version = POWER_REQUEST_CONTEXT_VERSION;
+        reason.Flags = POWER_REQUEST_CONTEXT_SIMPLE_STRING;
+        [[gsl::suppress("26492")]] // the C API is not const correct!
+        reason.Reason.SimpleReasonString = const_cast<wchar_t *>(reasonString);
+        return PowerCreateRequest(&reason);
+    }
+
+public:
     PowerRequest() = default;
     PowerRequest(const wchar_t *reason) noexcept
         : m_handle(createPowerRequestHandle(reason)) {}

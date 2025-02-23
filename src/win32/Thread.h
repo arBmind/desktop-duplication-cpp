@@ -2,6 +2,7 @@
 #include "Handle.h"
 
 #include "meta/callback_adapter.h"
+#include <thread>
 
 namespace win32 {
 

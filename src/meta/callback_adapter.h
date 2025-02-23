@@ -1,7 +1,7 @@
 #pragma once
 #include <bit>
 #include <memory>
-#include <winnt.h>
+#include <windows.h>
 
 template<class Parameter = void *>
 class UniqueCallbackAdapter final {

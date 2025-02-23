@@ -14,22 +14,54 @@ Project {
         cpp.enableRtti: false // disable runtime type information for faster build and smaller object files and executable
 
         cpp.minimumWindowsVersion: "10.0"
-        cpp.generateManifestFile: false
-        cpp.includePaths: 'src'
-        cpp.cxxFlags: ['/analyze', '/Zc:char8_t-']
-        cpp.defines: ['NOMINMAX']
         cpp.dynamicLibraries: ['d3d11', "User32", "Gdi32", "Shell32", "Ole32", "Comctl32"]
+        cpp.includePaths: ['src']
 
         Properties {
-            condition: qbs.toolchain.contains('msvc')
-            cpp.cxxFlags: outer.concat(
-                "/permissive-", "/Zc:__cplusplus", // best C++ compatibilty
+            condition: qbs.toolchainType == 'msvc'
+            cpp.generateManifestFile: false
+            cpp.defines: ['NOMINMAX']
+            cpp.cxxFlags: [
+                '/analyze', '/Zc:char8_t-',
+                '/permissive-', '/Zc:__cplusplus', // best C++ compatibilty
                 "/Zc:inline", // do not include inline code in object files
                 "/Zc:throwingNew", // avoid redundant null checks after new
                 "/diagnostics:caret", // better error postions
                 "/W4", // enable all warnings
                 "/experimental:external", "/external:anglebrackets", "/external:W0" // ignore warnings from external headers
-            )
+            ]
+        }
+        Properties {
+            condition: qbs.toolchainType == 'clang-cl'
+            cpp.generateManifestFile: false
+            cpp.defines: ['NOMINMAX']
+            cpp.cxxFlags: [
+                "/permissive-", "/Zc:__cplusplus", // best C++ compatibilty
+                "/Zc:inline", // do not include inline code in object files
+                "/diagnostics:caret", // better error postions
+                "/W4", // enable all warnings
+            ]
+        }
+        Properties {
+            condition: qbs.toolchain.contains('clang')
+            // note: would require '--target=x86_64-pc-windows-msvc19.43.34808' to work
+            // useful: to run third party clang based tools
+            cpp.defines: [
+                '_M_X64=100',
+                '_M_AMD64=100',
+                '_WIN64=1',
+                'NOMINMAX'
+            ]
+            cpp.cxxFlags: [
+                '-fms-volatile',
+                '-fms-extensions',
+                '-fms-compatibility-version=19.43.34808',
+                '-fms-compatibility',
+                // "-###" // print cc1 subcommand arguments
+            ]
+            cpp.systemIncludePaths: [
+                // note: actually needs msvc include & windows kit includes
+            ]
         }
 
         Depends { name: 'hlsl' }

@@ -1,9 +1,12 @@
 import qbs 1.0
 import qbs.File
 import qbs.FileInfo
+import qbs.TextFile
 import qbs.WindowsUtils
 import qbs.ModUtils
 import qbs.Utilities
+import qbs.Process
+
 
 Module {
     property string hlslName: "fxc.exe"
@@ -67,14 +70,28 @@ Module {
             }
             args = args.concat(ModUtils.moduleProperty(input, 'flags', 'hlsl'));
             args.push(FileInfo.toWindowsSeparators(input.filePath));
-            var cmd = new Command(ModUtils.moduleProperty(product, "hlslPath"), args);
+            var cmd = new JavaScriptCommand();
+            cmd.args = args;
+            cmd.outputPath = output.filePath;
+            cmd.hlslPath = ModUtils.moduleProperty(product, "hlslPath");
+            cmd.sourceCode = function() {
+                var process = new Process();
+                process.exec(hlslPath, args, true);
+                var file = new TextFile(outputPath, TextFile.ReadWrite);
+                var content = file.readAll();
+                file.truncate();
+                file.writeLine("#pragma once");
+                file.writeLine("#include <windows.h>");
+                file.write(content);
+                file.close();
+                var output = process.readStdOut();
+                var lines = output.split("\r\n").filter(function (s) {
+                    return !s.endsWith(inputFileName);
+                });
+                console.info(lines.join("\r\n"));
+            };
             cmd.description = "compiling shader " + input.fileName;
             cmd.inputFileName = input.fileName;
-            cmd.stdoutFilterFunction = function(output) {
-                var lines = output.split("\r\n").filter(function (s) {
-                    return !s.endsWith(inputFileName); });
-                return lines.join("\r\n");
-            };
             return cmd;
         }
     }

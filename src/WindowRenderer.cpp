@@ -333,7 +333,7 @@ void WindowRenderer::Resources::createRenderTarget() {
     if (IS_ERROR(result)) throw Error{result, "Failed to get backbuffer"};
 
     static constexpr const D3D11_RENDER_TARGET_VIEW_DESC *render_target_description = nullptr;
-    result = device()->CreateRenderTargetView(back_buffer.Get(), nullptr, &renderTarget);
+    result = device()->CreateRenderTargetView(back_buffer.Get(), render_target_description, &renderTarget);
     if (IS_ERROR(result)) throw Error{result, "Failed to create render target for backbuffer"};
 }
 

@@ -52,7 +52,6 @@ private:
 
     using PowerRequest = win32::PowerRequest<PowerRequestDisplayRequired, PowerRequestSystemRequired>;
     PowerRequest m_powerRequest;
-    bool m_hasPowerRequest{};
 };
 
 } // namespace deskdup

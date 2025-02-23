@@ -2,6 +2,7 @@
 #include "Geometry.h"
 
 #include <Windows.h>
+#include <bit>
 
 namespace win32 {
 
